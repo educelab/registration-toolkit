@@ -5,6 +5,7 @@ LandmarkGenerator/runnable.jar
 **cmake-build-*/
 **.png
 !utils/crosshair.png
+!logo.png
 **.jpg
 **.mhd
 **.raw

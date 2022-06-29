@@ -1,0 +1,33 @@
+variables:
+  BUILD_TYPE: "Release"
+
+.build_script: &build_script
+  - cmake -E make_directory build-$BUILD_TYPE
+  - cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
+  - cmake --build build-$BUILD_TYPE
+
+.test_script: &test_script
+  - ctest -V --test-dir build-$BUILD_TYPE
+
+.build_and_test:
+  script:
+    - *build_script
+    - *test_script
+
+test:ubuntu:20.04:
+  image: ubuntu:22.04
+  extends: .build_and_test
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+  before_script:
+    - apt-get -y update
+    - apt-get install -y build-essential git cmake ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
+  tags:
+    - docker
+
+test:macos:
+  extends: .build_and_test
+  variables:
+      CMAKE_PREFIX_PATH: "/usr/local/educelab/vc-deps-1.7-static-debug"
+  tags:
+    - macos
