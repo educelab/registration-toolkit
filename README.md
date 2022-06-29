@@ -1,7 +1,5 @@
 # registration-toolkit
 
-[![Build and Test](https://github.com/viscenter/registration-toolkit/workflows/Build%20and%20Test/badge.svg?branch=develop)](https://github.com/viscenter/registration-toolkit/actions)
-
 A set of utilities written in C++ for simplifying image alignment tasks. 
 Supports image-to-image and image-to-mesh registration across a range of image 
 depths and types. Fully supports gray, gray+alpha, RGB, and RGBA images in 8, 
@@ -51,7 +49,7 @@ workflow:
 
 ```shell
 # Get the source code 
-git clone https://github.com/viscenter/registration-toolkit.git
+git clone https://gitlab.com/educelab/registration-toolkit.git
 cd registration-toolkit/
 
 # Make an out-of-source build directory
@@ -87,7 +85,7 @@ cmake -DRT_BUILD_TESTS=ON ..
 To align a moving image `close-up.jpg` to a fixed image `wide-angle.jpg`:
 
 ```shell
-rt_register2d -f wide-angle.jpg -m close-up.jpg -o result.jpg
+rt_register -f wide-angle.jpg -m close-up.jpg -o result.jpg
 ```
 
 **Note:** By default, this application will attempt to automatically detect and 
@@ -99,7 +97,7 @@ provide pre-computed landmarks, please provide a [Landmarks file](#Landmarks-fil
 To align a moving image `color-photo.jpg` to a textured 3D mesh `grayscale-mesh.obj`:
 
 ```shell
-rt_register3d -f color-photo.jpg -m grayscale-mesh.obj -o color-mesh.obj
+rt_register -f grayscale-mesh.obj -m color-photo.jpg -o color-mesh.obj
 ```
 
 **Note:** This process uses a 2D-to-2D registration process between the moving 
