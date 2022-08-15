@@ -1,9 +1,9 @@
 Bootstrap: docker
-From: ubuntu:21.04
+From: ubuntu:22.04
 
 %labels
   MAINTAINER Stephen Parsons <stephen.parsons@uky.edu>
-  OS Ubuntu 21.04
+  OS Ubuntu 22.04
 
 %files
   /tmp/registration-toolkit /usr/local/educelab/registration-toolkit
@@ -11,28 +11,40 @@ From: ubuntu:21.04
 %post
   # Give read/write access in registration-toolkit (so it can later be edited using a persistent overlay)
   chmod --recursive a+rw /usr/local/educelab/registration-toolkit
-  # Basic installs (noninteractive so tzdata dependency install doesn't halt build with prompt)
+
+  # Install dependencies
   apt update
-  DEBIAN_FRONTEND=noninteractive apt install -y git nano vim build-essential
+  DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    curl \
+    git \
+    libopencv-dev \
+    libvtk9-dev \
+    libvtk9-qt-dev \
+    libboost-program-options-dev \
+    libinsighttoolkit5-dev \
+    nano \
+    ninja-build \
+    vim \
+    wget
+
   # Store git credentials for up to an hour (in overlay, not container) for convenience
   git config --global credential.helper cache
   git config --global credential.helper 'cache --timeout=3600'
-  # Install registration-toolkit dependencies
-  apt install -y \
-    cmake \
-    libopencv-dev \
-    libvtk6-dev \
-    libboost-program-options-dev \
-    libinsighttoolkit4-dev
+  git config --global --add safe.directory /usr/local/educelab/registration-toolkit/
+
   # Build registration-toolkit
   cd /usr/local/educelab/registration-toolkit
-  mkdir build && cd build
-  cmake ..
-  make -j$(nproc --all)
+  cmake -E make_directory build
+  cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+  cmake --build build
+
   # Install registration-toolkit
-  make install
+  cmake --install build
+
   # Remove build directory
-  cd .. && rm -rf build/
+  rm -rf build/
 
 %runscript
   if [ $# -lt 1 ]; then
