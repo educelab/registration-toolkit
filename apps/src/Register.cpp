@@ -29,18 +29,27 @@ auto main(int argc, char* argv[]) -> int
         ("fixed,f", po::value<std::string>()->required(), "Fixed image/mesh")
         ("output-file,o", po::value<std::string>()->required(),
             "Output file path for the registered moving file")
-        ("output-ldm", po::value<std::string>(),
-            "Output file path for the generated landmarks file")
         ("output-tfm,t", po::value<std::string>(),
             "Output file path for the generated transform file")
-        ("enable-alpha", "If enabled, an alpha layer will be "
-            "added to the moving image if it does not already have one.")
         ("report-metrics", "Outputs the metric values from the deformable and affine");
 
     po::options_description graphOptions("Render Graph Options");
     graphOptions.add_options()
         ("output-graph,g", po::value<std::string>(), "Render graph JSON file")
         ("output-dot", po::value<std::string>(), "Render graph Dot file");
+
+    po::options_description twoOptions("2D-to-2D Registration Options");
+    twoOptions.add_options()
+        ("enable-alpha", "If enabled, an alpha layer will be "
+            "added to the moving image if it does not already have one.");
+
+    po::options_description threeOptions("2D-to-3D Registration Options");
+    threeOptions.add_options()
+        ("write-new-texture", "By default, the provided moving image is "
+            "copied and renamed from its original path to the output path "
+            "using file system operations. When this flag is provided, a new "
+            "texture file is written to the output location using the "
+            "in-memory version of the moving image.");
 
     po::options_description ldmOptions("Landmark Registration Options");
     ldmOptions.add_options()
@@ -51,7 +60,9 @@ auto main(int argc, char* argv[]) -> int
             "are automatically detected from the input images.")
         ("landmark-match-ratio", po::value<float>()->default_value(0.3F),
             "Matching ratio for automatically detected features. Smaller "
-            "values represent closer matches.");
+            "values represent closer matches.")
+        ("output-ldm", po::value<std::string>(),
+            "Output file path for the generated landmarks file");
 
     po::options_description deformOptions("Deformable Registration Options");
     deformOptions.add_options()
@@ -64,7 +75,9 @@ auto main(int argc, char* argv[]) -> int
             "The deformable gradient magnitude tolerance");
 
     po::options_description all("Usage");
-    all.add(required).add(graphOptions).add(ldmOptions).add(deformOptions);
+    all.add(required).add(graphOptions)
+       .add(twoOptions).add(threeOptions)
+       .add(ldmOptions).add(deformOptions);
     // clang-format on
 
     // Parse the cmd line
@@ -224,8 +237,13 @@ auto main(int argc, char* argv[]) -> int
         auto writer = graph.insertNode<MeshWriteNode>();
         writer->path = outputPath;
         writer->mesh = *results["mesh"];
-        writer->image = moving->image;
         writer->uvMap = tfmUVs->uvMapOut;
+        // Set the texture image source
+        if (parsed.count("write-new-texture") > 0) {
+            writer->image = moving->image;
+        } else {
+            writer->imageSource = movingPath;
+        }
     }
 
     // Handle 2D-to-2D registration

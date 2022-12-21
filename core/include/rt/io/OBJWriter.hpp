@@ -58,8 +58,23 @@ public:
     /** @brief Set the input UV Map */
     void setUVMap(const UVMap& uvMap);
 
-    /** @brief Set the input texture image */
+    /**
+     * @brief Set the input texture image
+     *
+     * The texture image to be used as the output texture image. Calling this
+     * function has the effect of clearing the path previously provided to
+     * setTextureSource().
+     */
     void setTexture(const cv::Mat& uvImg);
+
+    /**
+     * @brief Set the input texture image source path
+     *
+     * If provided, copy the image at the provided path to the output texture
+     * path rather than writing a new image. Calling this function has the
+     * effect of clearing the texture previously provided to setTexture().
+     */
+    void setTextureSource(const filesystem::path& path);
 
     /** @brief Validate parameters */
     auto validate() -> bool;
@@ -100,6 +115,8 @@ private:
     UVMap uvMap_;
     /** Input texture image */
     cv::Mat texture_;
+    /** Input texture image path */
+    filesystem::path textureSrc_;
 
     /** Write the OBJ file */
     auto write_obj_() -> int;

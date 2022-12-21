@@ -10,7 +10,7 @@
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
 
-int main(int argc, char** argv)
+auto main(int argc, char** argv) -> int
 {
     ///// Parse the command line options /////
     // All command line options
@@ -45,22 +45,21 @@ int main(int argc, char** argv)
     }
 
     // Load mesh
-    fs::path inputPath = parsed["input-mesh"].as<std::string>();
+    const fs::path inputPath = parsed["input-mesh"].as<std::string>();
     rt::io::OBJReader reader;
     reader.setPath(inputPath);
     reader.read();
 
     // Load the image
-    fs::path imagePath = parsed["texture"].as<std::string>();
-    auto image = rt::ReadImage(imagePath);
+    const fs::path imagePath = parsed["texture"].as<std::string>();
 
     // Write the new mesh
-    fs::path outputPath = parsed["output-mesh"].as<std::string>();
+    const fs::path outputPath = parsed["output-mesh"].as<std::string>();
     rt::io::OBJWriter writer;
     writer.setPath(outputPath);
     writer.setMesh(reader.getMesh());
     writer.setUVMap(reader.getUVMap());
-    writer.setTexture(image);
+    writer.setTextureSource(imagePath);
     writer.write();
 
     return EXIT_SUCCESS;

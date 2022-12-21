@@ -52,6 +52,13 @@ public:
      */
     auto getTextureMat() -> cv::Mat;
 
+    /**
+     * @brief Return the path to the texture image
+     *
+     * If no texture image was read from MTL file, returns an empty path.
+     */
+    auto getTexturePath() -> filesystem::path;
+
 private:
     /**
      * 3-Tuple linking a vertex to its position, UV, and normal elements

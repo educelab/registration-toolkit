@@ -13,6 +13,7 @@ rtg::MeshReadNode::MeshReadNode()
     registerInputPort("path", path);
     registerOutputPort("mesh", mesh);
     registerOutputPort("image", image);
+    registerOutputPort("imagePath", imagePath);
     registerOutputPort("uvMap", uvMap);
     compute = [this]() {
         std::cout << "Reading mesh..." << std::endl;
@@ -20,6 +21,7 @@ rtg::MeshReadNode::MeshReadNode()
         r.setPath(path_);
         mesh_ = r.read();
         img_ = r.getTextureMat();
+        imgPath_ = r.getTexturePath();
         uv_ = r.getUVMap();
     };
 }
@@ -41,6 +43,7 @@ rtg::MeshWriteNode::MeshWriteNode()
     registerInputPort("path", path);
     registerInputPort("mesh", mesh);
     registerInputPort("image", image);
+    registerInputPort("imageSource", imageSource);
     registerInputPort("uvMap", uvMap);
     compute = [this]() {
         std::cout << "Writing mesh..." << std::endl;
@@ -48,6 +51,7 @@ rtg::MeshWriteNode::MeshWriteNode()
         w.setPath(path_);
         w.setMesh(mesh_);
         w.setTexture(img_);
+        w.setTextureSource(imgSrc_);
         w.setUVMap(uv_);
         w.write();
     };

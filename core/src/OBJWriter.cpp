@@ -28,7 +28,17 @@ void OBJWriter::setPath(const fs::path& path) { outputPath_ = path; }
 
 void OBJWriter::setUVMap(const rt::UVMap& uvMap) { uvMap_ = uvMap; }
 
-void OBJWriter::setTexture(const cv::Mat& uvImg) { texture_ = uvImg; }
+void OBJWriter::setTexture(const cv::Mat& uvImg)
+{
+    texture_ = uvImg;
+    textureSrc_.clear();
+}
+
+void OBJWriter::setTextureSource(const fs::path& path)
+{
+    textureSrc_ = path;
+    texture_ = cv::Mat();
+}
 
 void OBJWriter::setMesh(const ITKMesh::Pointer& mesh) { mesh_ = mesh; }
 
@@ -37,14 +47,15 @@ void OBJWriter::setMesh(const ITKMesh::Pointer& mesh) { mesh_ = mesh; }
 auto OBJWriter::validate() -> bool
 {
     // Make sure the output path has a file extension for the OBJ
-    bool hasExt =
+    const bool hasExt =
         (outputPath_.extension() == ".OBJ" ||
          outputPath_.extension() == ".obj");
     // Make sure the output directory exists
-    bool pathExists =
+    const bool pathExists =
         fs::is_directory(fs::canonical(outputPath_.parent_path()));
     // Check that the mesh exists and has points
-    bool meshHasPoints = (mesh_.IsNotNull() && mesh_->GetNumberOfPoints() != 0);
+    const bool meshHasPoints =
+        (mesh_.IsNotNull() && mesh_->GetNumberOfPoints() != 0);
 
     return (hasExt && pathExists && meshHasPoints);
 }
@@ -110,7 +121,7 @@ auto OBJWriter::write_mtl_() -> int
     outputMTL_ << "newmtl default\n";
 
     // Path to the texture file, relative to the MTL file
-    if (!texture_.empty()) {
+    if (not texture_.empty() or not textureSrc_.empty()) {
         outputMTL_ << "\nnewmtl image\n";
         outputMTL_ << "map_Kd " << outputPath_.stem().string() + ".tif\n";
     }
@@ -122,14 +133,22 @@ auto OBJWriter::write_mtl_() -> int
 // Write the PNG texture file to disk
 auto OBJWriter::write_texture_() -> int
 {
-    if (texture_.empty()) {
-        return EXIT_FAILURE;
-    }
-
-    std::cerr << "Writing texture image...\n";
+    // Output path
     fs::path p = outputPath_;
     p.replace_extension("tif");
-    rt::WriteImage(p, texture_);
+
+    // Prioritize the provided texture map
+    if (not texture_.empty()) {
+        std::cerr << "Writing texture image...\n";
+        rt::WriteImage(p, texture_);
+    }
+    // Copy from the provided source file
+    else if (not textureSrc_.empty()) {
+        std::cerr << "Copying texture image...\n";
+        fs::copy_file(textureSrc_, p, fs::copy_options::overwrite_existing);
+    } else {
+        return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }
 
@@ -237,7 +256,8 @@ auto OBJWriter::write_faces_() -> int
             uvFace = uvMap_.getFace(cell.Index());
         }
 
-        if (not texture_.empty() and hasUVFace and not usingImageMTL) {
+        const bool hasTexture = not texture_.empty() or not textureSrc_.empty();
+        if (hasTexture and hasUVFace and not usingImageMTL) {
             outputMesh_ << "usemtl image\n";
             usingImageMTL = true;
         }

@@ -9,6 +9,7 @@ rtg::LandmarkDetectorNode::LandmarkDetectorNode() : Node{true}
 {
     registerInputPort("fixedImage", fixedImage);
     registerInputPort("movingImage", movingImage);
+    registerInputPort("matchRatio", matchRatio);
     registerOutputPort("fixedLandmarks", fixedLandmarks);
     registerOutputPort("movingLandmarks", movingLandmarks);
     compute = [this]() {
