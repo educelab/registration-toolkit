@@ -37,6 +37,8 @@ public:
     smgl::OutputPort<ITKMesh::Pointer> mesh{&mesh_};
     /** @brief Loaded image port */
     smgl::OutputPort<cv::Mat> image{&img_};
+    /** @brief Loaded image path port */
+    smgl::OutputPort<filesystem::path> imagePath{&imgPath_};
     /** @brief Load UV Map port */
     smgl::OutputPort<UVMap> uvMap{&uv_};
     /**@}*/
@@ -48,6 +50,8 @@ private:
     ITKMesh::Pointer mesh_;
     /** Loaded image */
     cv::Mat img_;
+    /** Loaded image path */
+    filesystem::path imgPath_;
     /** Loaded UV map */
     UVMap uv_;
     /** Graph serialize */
@@ -77,6 +81,8 @@ public:
     smgl::InputPort<ITKMesh::Pointer> mesh{&mesh_};
     /** @brief Texture image port */
     smgl::InputPort<cv::Mat> image{&img_};
+    /** @brief Texture image source path port */
+    smgl::InputPort<filesystem::path> imageSource{&imgSrc_};
     /** @brief UVMap port */
     smgl::InputPort<UVMap> uvMap{&uv_};
     /**@}*/
@@ -88,6 +94,8 @@ private:
     ITKMesh::Pointer mesh_;
     /** Texture image to write */
     cv::Mat img_;
+    /** Image source path */
+    filesystem::path imgSrc_;
     /** UVMap to write */
     UVMap uv_;
     /** Graph serialize */

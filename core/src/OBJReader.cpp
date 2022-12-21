@@ -53,6 +53,8 @@ auto OBJReader::getTextureMat() -> cv::Mat
     return cv::imread(texturePath_.string(), -1);
 }
 
+auto OBJReader::getTexturePath() -> fs::path { return texturePath_; }
+
 // Prepare all data structures to read a new file
 void OBJReader::reset_()
 {
