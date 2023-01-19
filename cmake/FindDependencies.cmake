@@ -36,8 +36,8 @@ endif()
 ### libtiff ###
 find_package(TIFF REQUIRED)
 
-### smeagol ###
-include(BuildSmeagol)
+### smgl ###
+include(Buildsmgl)
 
 ### bvh ###
 include(Buildbvh)
