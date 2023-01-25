@@ -7,12 +7,11 @@
 #include <smgl/Ports.hpp>
 
 #include "rt/filesystem.hpp"
+#include "rt/io/OBJWriter.hpp"
 #include "rt/types/ITKMesh.hpp"
 #include "rt/types/UVMap.hpp"
 
-namespace rt
-{
-namespace graph
+namespace rt::graph
 {
 
 /**
@@ -76,28 +75,22 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Mesh path port */
-    smgl::InputPort<filesystem::path> path{&path_};
+    smgl::InputPort<filesystem::path> path;
     /** @brief Mesh port */
-    smgl::InputPort<ITKMesh::Pointer> mesh{&mesh_};
+    smgl::InputPort<ITKMesh::Pointer> mesh;
     /** @brief Texture image port */
-    smgl::InputPort<cv::Mat> image{&img_};
+    smgl::InputPort<cv::Mat> image;
     /** @brief Texture image source path port */
-    smgl::InputPort<filesystem::path> imageSource{&imgSrc_};
+    smgl::InputPort<filesystem::path> imageSource;
     /** @brief UVMap port */
-    smgl::InputPort<UVMap> uvMap{&uv_};
+    smgl::InputPort<UVMap> uvMap;
     /**@}*/
 
 private:
     /** File path */
     filesystem::path path_;
-    /** Mesh to write */
-    ITKMesh::Pointer mesh_;
-    /** Texture image to write */
-    cv::Mat img_;
-    /** Image source path */
-    filesystem::path imgSrc_;
-    /** UVMap to write */
-    UVMap uv_;
+    /** Mesh writer */
+    io::OBJWriter writer_;
     /** Graph serialize */
     smgl::Metadata serialize_(
         bool /*unused*/, const filesystem::path& /*unused*/) override;
@@ -107,5 +100,4 @@ private:
         const filesystem::path& /*unused*/) override;
 };
 
-}  // namespace graph
 }  // namespace rt

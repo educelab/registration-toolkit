@@ -39,6 +39,11 @@ void rtg::MeshReadNode::deserialize_(
 }
 
 rtg::MeshWriteNode::MeshWriteNode()
+    : path{&path_}
+    , mesh{&writer_, &io::OBJWriter::setMesh}
+    , image{&writer_, &io::OBJWriter::setTexture}
+    , imageSource{&writer_, &io::OBJWriter::setTextureSource}
+    , uvMap{&writer_, &io::OBJWriter::setUVMap}
 {
     registerInputPort("path", path);
     registerInputPort("mesh", mesh);
@@ -47,13 +52,8 @@ rtg::MeshWriteNode::MeshWriteNode()
     registerInputPort("uvMap", uvMap);
     compute = [this]() {
         std::cout << "Writing mesh..." << std::endl;
-        io::OBJWriter w;
-        w.setPath(path_);
-        w.setMesh(mesh_);
-        w.setTexture(img_);
-        w.setTextureSource(imgSrc_);
-        w.setUVMap(uv_);
-        w.write();
+        writer_.setPath(path_);
+        writer_.write();
     };
 }
 

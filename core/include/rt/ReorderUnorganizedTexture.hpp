@@ -167,7 +167,7 @@ private:
     /** Third basis */
     cv::Vec3d zAxis_;
 
-    /** Whether we want the first or last mesh interesection point */
+    /** Whether we want the first or last mesh intersection point */
     bool useFirstIntersection_{false};
 
     /** Output UV map */
