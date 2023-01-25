@@ -9,9 +9,6 @@ From: ubuntu:22.04
   /tmp/registration-toolkit /usr/local/educelab/registration-toolkit
 
 %post
-  # Give read/write access in registration-toolkit (so it can later be edited using a persistent overlay)
-  chmod --recursive a+rw /usr/local/educelab/registration-toolkit
-
   # Install dependencies
   apt update
   DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
@@ -29,11 +26,6 @@ From: ubuntu:22.04
     vim \
     wget
 
-  # Store git credentials for up to an hour (in overlay, not container) for convenience
-  git config --global credential.helper cache
-  git config --global credential.helper 'cache --timeout=3600'
-  git config --global --add safe.directory /usr/local/educelab/registration-toolkit/
-
   # Build registration-toolkit
   cd /usr/local/educelab/registration-toolkit
   cmake -E make_directory build
@@ -45,6 +37,13 @@ From: ubuntu:22.04
 
   # Remove build directory
   rm -rf build/
+
+  # Make writable
+  echo "Cleaning up installation directory..."
+  chmod --recursive a+rw /usr/local/educelab/
+  git config --global credential.helper cache
+  git config --global credential.helper 'cache --timeout=3600'
+  git config --global --add safe.directory /usr/local/educelab/registration-toolkit/
 
 %runscript
   if [ $# -lt 1 ]; then
