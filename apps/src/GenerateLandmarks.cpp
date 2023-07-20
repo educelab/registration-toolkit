@@ -4,6 +4,7 @@
 #include "rt/filesystem.hpp"
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
+#include "rt/util/ImageConversion.hpp"
 
 namespace fs = rt::filesystem;
 
@@ -11,8 +12,10 @@ int main(int argc, const char* argv[])
 {
     // Check arg count
     if (argc < 4) {
-        std::cerr << "Usage: " << argv[0]
-                  << " [fixed] [moving] [output] {[conf]}" << std::endl;
+        std::cerr
+            << "Usage: " << argv[0]
+            << " [fixed] [moving] [output] {[conf] [fixed mask] [moving mask]}"
+            << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -29,6 +32,15 @@ int main(int argc, const char* argv[])
     auto fixedImg = rt::ReadImage(fixedPath);
     auto movingImg = rt::ReadImage(movingPath);
 
+    // Load masks
+    cv::Mat fixedMask, movingMask;
+    if (argc > 5) {
+        fixedMask = rt::ReadImage(argv[5]);
+    }
+    if (argc > 6) {
+        movingMask = rt::ReadImage(argv[6]);
+    }
+
     // Check that images opened correctly
     if (fixedImg.empty() || movingImg.empty()) {
         std::cout << "Failed to read image(s)" << std::endl;
@@ -40,6 +52,8 @@ int main(int argc, const char* argv[])
     rt::LandmarkDetector detector;
     detector.setFixedImage(fixedImg);
     detector.setMovingImage(movingImg);
+    detector.setFixedMask(fixedMask);
+    detector.setMovingMask(movingMask);
     detector.setMatchRatio(confidence);
     auto matchedPairs = detector.compute().size();
     std::cout << "Generated matches: " << matchedPairs << std::endl;

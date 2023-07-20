@@ -55,6 +55,8 @@ auto main(int argc, char* argv[]) -> int
     ldmOptions.add_options()
         ("disable-landmark", "Disable all landmark registration steps")
         ("disable-landmark-bspline", "Disable secondary B-Spline landmark registration")
+        ("fixed-mask", po::value<std::string>(), "Fixed image mask")
+        ("moving-mask", po::value<std::string>(), "Moving image mask")
         ("input-landmarks,l", po::value<std::string>(),
             "Input landmarks file. If not provided, landmark features "
             "are automatically detected from the input images.")
@@ -109,7 +111,7 @@ auto main(int argc, char* argv[]) -> int
     // Add the project metadata
     graph.setProjectMetadata(
         {{rt::ProjectInfo::Name(), rt::graph::ProjectMetadata()}});
-    // Setup a map to keep a reference to important output ports
+    // Set up a map to keep a reference to important output ports
     std::unordered_map<std::string, smgl::Output*> results;
 
     ///// Setup caching /////
@@ -163,6 +165,18 @@ auto main(int argc, char* argv[]) -> int
             genLdm->movingImage = moving->image;
             genLdm->matchRatio = parsed["landmark-match-ratio"].as<float>();
             ldmNode = genLdm;
+
+            // Optionally load masks
+            if (parsed.count("fixed-mask") > 0) {
+                auto maskRead = graph.insertNode<ImageReadNode>();
+                maskRead->path = parsed["fixed-mask"].as<std::string>();
+                genLdm->fixedMask = maskRead->image;
+            }
+            if (parsed.count("moving-mask") > 0) {
+                auto maskRead = graph.insertNode<ImageReadNode>();
+                maskRead->path = parsed["moving-mask"].as<std::string>();
+                genLdm->movingMask = maskRead->image;
+            }
 
             // Optionally write generated landmarks to file
             if (parsed.count("output-ldm") > 0) {
@@ -253,7 +267,7 @@ auto main(int argc, char* argv[]) -> int
         resample2->fixedImage = *results["fixedImage"];
         resample2->movingImage = moving->image;
         resample2->transform = compositeTfms->result;
-        resample2->forceAlpha = parsed.count("enable-alpha") > 0;	
+        resample2->forceAlpha = parsed.count("enable-alpha") > 0;
 
         ///// Write the output image /////
         auto writer = graph.insertNode<ImageWriteNode>();

@@ -8,14 +8,19 @@ namespace fs = rt::filesystem;
 rtg::LandmarkDetectorNode::LandmarkDetectorNode() : Node{true}
 {
     registerInputPort("fixedImage", fixedImage);
+    registerInputPort("fixedMask", fixedMask);
     registerInputPort("movingImage", movingImage);
+    registerInputPort("movingMask", movingMask);
     registerInputPort("matchRatio", matchRatio);
+    registerInputPort("maxImageDim", maxImageDim);
     registerOutputPort("fixedLandmarks", fixedLandmarks);
     registerOutputPort("movingLandmarks", movingLandmarks);
     compute = [this]() {
         std::cout << "Detecting landmarks..." << std::endl;
         detector_.setFixedImage(fixedImg_);
+        detector_.setFixedMask(fixedMask_);
         detector_.setMovingImage(movingImg_);
+        detector_.setMovingMask(movingMask_);
         detector_.compute();
         fixedLdm_ = detector_.getFixedLandmarks();
         movingLdm_ = detector_.getMovingLandmarks();
@@ -25,7 +30,9 @@ rtg::LandmarkDetectorNode::LandmarkDetectorNode() : Node{true}
 smgl::Metadata rtg::LandmarkDetectorNode::serialize_(
     bool useCache, const fs::path& cacheDir)
 {
-    smgl::Metadata m{{"matchRatio", detector_.matchRatio()}};
+    smgl::Metadata m{
+        {"matchRatio", detector_.matchRatio()},
+        {"maxImageDim", detector_.maxImageDim()}};
     if (useCache) {
         LandmarkWriter writer;
         writer.setPath(cacheDir / "landmarks.ldm");
@@ -42,6 +49,7 @@ void rtg::LandmarkDetectorNode::deserialize_(
     const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     detector_.setMatchRatio(meta["matchRatio"].get<float>());
+    detector_.setMaxImageDim(meta["maxImageDim"].get<int>());
     if (meta.contains("landmarks")) {
         auto file = meta["landmarks"].get<std::string>();
         LandmarkReader reader;
@@ -64,7 +72,7 @@ rtg::AffineLandmarkRegistrationNode::AffineLandmarkRegistrationNode()
     registerInputPort("reportMetrics", reportMetrics);
     registerOutputPort("transform", transform);
 
-    compute = [=]() {
+    compute = [this]() {
         std::cout << "Running affine registration..." << std::endl;
         reg_.setFixedLandmarks(fixed_);
         reg_.setMovingLandmarks(moving_);
@@ -102,7 +110,7 @@ rtg::BSplineLandmarkWarpingNode::BSplineLandmarkWarpingNode() : Node{true}
     registerInputPort("movingLandmarks", movingLandmarks);
     registerOutputPort("transform", transform);
 
-    compute = [=]() {
+    compute = [this]() {
         std::cout << "Running B-spline landmark registration..." << std::endl;
         reg_.setFixedLandmarks(fixed_);
         reg_.setFixedImage(fixedImg_);

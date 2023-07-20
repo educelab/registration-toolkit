@@ -42,6 +42,15 @@ public:
     void setMatchRatio(float r);
     /** @copydoc setMatchRatio(float) */
     [[nodiscard]] auto matchRatio() const -> float;
+    /**
+     * @brief Maximum image dimension
+     *
+     * Images with any dimension larger than this size will be
+     * downscaled before landmark detection.
+     */
+    void setMaxImageDim(int s);
+    /** @copydoc setMaxImageDim(int) */
+    [[nodiscard]] auto maxImageDim() const -> int;
 
     /** @brief Compute key point matches between the fixed and moving images
      *
@@ -76,5 +85,7 @@ private:
     std::vector<LandmarkPair> output_;
     /** Nearest-neighbor matching ratio */
     float nnMatchRatio_{0.3F};
+    /** Maximum image size for feature detection */
+    int maxImageDim_{4096};
 };
 }  // namespace rt
