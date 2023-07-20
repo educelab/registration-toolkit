@@ -29,11 +29,18 @@ public:
     /**@{*/
     /** @brief Fixed image port */
     smgl::InputPort<cv::Mat> fixedImage{&fixedImg_};
+    /** @brief Fixed image port */
+    smgl::InputPort<cv::Mat> fixedMask{&fixedMask_};
     /** @brief Moving image port */
     smgl::InputPort<cv::Mat> movingImage{&movingImg_};
+    /** @brief Moving image port */
+    smgl::InputPort<cv::Mat> movingMask{&movingMask_};
     /** @copydoc LandmarkDetector::setMatchRatio(float) */
     smgl::InputPort<float> matchRatio{
         &detector_, &LandmarkDetector::setMatchRatio};
+    /** @copydoc LandmarkDetector::setMaxImageDim(int) */
+    smgl::InputPort<int> maxImageDim{
+        &detector_, &LandmarkDetector::setMaxImageDim};
     /**@}*/
 
     /** @name Output Ports */
@@ -49,8 +56,12 @@ private:
     LandmarkDetector detector_;
     /** Fixed image */
     cv::Mat fixedImg_;
+    /** Fixed mask */
+    cv::Mat fixedMask_;
     /** Moving image */
     cv::Mat movingImg_;
+    /** Moving mask */
+    cv::Mat movingMask_;
     /** Detected fixed landmarks */
     LandmarkContainer fixedLdm_;
     /** Detected moving landmarks */
