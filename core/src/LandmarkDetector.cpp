@@ -6,6 +6,8 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include "rt/util/ImageConversion.hpp"
+
 using namespace rt;
 
 void LandmarkDetector::setFixedImage(const cv::Mat& img) { fixedImg_ = img; }
@@ -40,28 +42,28 @@ auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
     output_.clear();
 
     // Resize inputs
-    cv::Mat fixedImg = fixedImg_;
-    cv::Mat movingImg = movingImg_;
-    cv::Mat fixedMask = fixedMask_;
-    cv::Mat movingMask = movingMask_;
+    cv::Mat fixedImg = QuantizeImage(fixedImg_, CV_8U);
+    cv::Mat movingImg = QuantizeImage(movingImg_, CV_8U);
+    cv::Mat fixedMask = QuantizeImage(ColorConvertImage(fixedMask_), CV_8U);
+    cv::Mat movingMask = QuantizeImage(ColorConvertImage(movingMask_), CV_8U);
     float fs{1.};
     float ms{1.};
     if (::NeedsResize(fixedImg, maxImageDim_, fs)) {
-        cv::resize(fixedImg_, fixedImg, cv::Size(), fs, fs, cv::INTER_AREA);
+        cv::resize(fixedImg, fixedImg, cv::Size(), fs, fs, cv::INTER_AREA);
         std::cerr << "Resized fixed image: ";
         std::cerr << fixedImg.cols << "x" << fixedImg.rows << std::endl;
-        if (not fixedMask_.empty()) {
+        if (not fixedMask.empty()) {
             cv::resize(
-                fixedMask_, fixedMask, cv::Size(), fs, fs, cv::INTER_AREA);
+                fixedMask, fixedMask, cv::Size(), fs, fs, cv::INTER_AREA);
         }
     }
     if (::NeedsResize(movingImg, maxImageDim_, ms)) {
-        cv::resize(movingImg_, movingImg, cv::Size(), ms, ms, cv::INTER_AREA);
+        cv::resize(movingImg, movingImg, cv::Size(), ms, ms, cv::INTER_AREA);
         std::cerr << "Resized moving image: ";
         std::cerr << movingImg.cols << "x" << movingImg.rows << std::endl;
-        if (not movingMask_.empty()) {
+        if (not movingMask.empty()) {
             cv::resize(
-                movingMask_, movingMask, cv::Size(), ms, ms, cv::INTER_AREA);
+                movingMask, movingMask, cv::Size(), ms, ms, cv::INTER_AREA);
         }
     }
 
