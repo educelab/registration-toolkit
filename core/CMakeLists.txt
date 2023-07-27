@@ -62,6 +62,7 @@ target_link_libraries(rt_core
         ITKTransform
         ${core_vtk_public}
     PRIVATE
+        opencv_calib3d
         opencv_features2d
         opencv_imgcodecs
         opencv_imgproc

@@ -84,7 +84,7 @@ private:
     /** Matched pairs */
     std::vector<LandmarkPair> output_;
     /** Nearest-neighbor matching ratio */
-    float nnMatchRatio_{0.3F};
+    float nnMatchRatio_{0.7F};
     /** Maximum image size for feature detection */
     int maxImageDim_{4096};
 };
