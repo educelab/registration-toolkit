@@ -23,7 +23,7 @@ int main(int argc, const char* argv[])
     fs::path fixedPath = argv[1];
     fs::path movingPath = argv[2];
     fs::path outputPath = argv[3];
-    float confidence{0.3F};
+    float confidence{0.7F};
     if (argc > 4) {
         confidence = std::stof(argv[4]);
     }

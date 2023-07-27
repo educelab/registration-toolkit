@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <exception>
 
+#include <opencv2/calib3d.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -19,7 +20,7 @@ void LandmarkDetector::setMaxImageDim(int s) { maxImageDim_ = s; }
 
 namespace
 {
-auto NeedsResize(const cv::Mat& img, int dimLimit, float& scale)
+auto NeedsResize(const cv::Mat& img, int dimLimit, float& scale) -> bool
 {
     auto maxDim = std::max(img.rows, img.cols);
     auto res = maxDim > dimLimit;
@@ -92,11 +93,30 @@ auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
         }
     }
 
+    // Use RANSAC to filter matches further
+    // TODO: It's a shame that we can't keep and use this homography...
+    std::vector<cv::Point2f> fixed;
+    std::vector<cv::Point2f> moving;
+    cv::Mat mask;
+    for (const auto& m : goodMatches) {
+        fixed.push_back(fixedKeys[m.queryIdx].pt);
+        moving.emplace_back(movingKeys[m.trainIdx].pt);
+    }
+    cv::findHomography(moving, fixed, cv::RANSAC, 3., mask);
+
     // Convert good matches to landmark pairs
     // query = fixed, train = moving
     fs = 1.F / fs;
     ms = 1.F / ms;
-    for (const auto& m : goodMatches) {
+    for (int idx = 0; idx < static_cast<int>(goodMatches.size()); idx++) {
+        // Get match
+        const auto& m = goodMatches[idx];
+
+        // Filter by mask
+        if (mask.at<std::uint8_t>(idx, 0) == 0) {
+            continue;
+        }
+
         // From fixed -> moving
         if (m.imgIdx == 0) {
             auto fixPt = fixedKeys[m.queryIdx].pt * fs;

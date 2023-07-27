@@ -60,7 +60,7 @@ auto main(int argc, char* argv[]) -> int
         ("input-landmarks,l", po::value<std::string>(),
             "Input landmarks file. If not provided, landmark features "
             "are automatically detected from the input images.")
-        ("landmark-match-ratio", po::value<float>()->default_value(0.3F),
+        ("landmark-match-ratio", po::value<float>()->default_value(0.7F),
             "Matching ratio for automatically detected features. Smaller "
             "values represent closer matches.")
         ("output-ldm", po::value<std::string>(),
