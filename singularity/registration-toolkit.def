@@ -27,6 +27,12 @@ From: ubuntu:22.04
     vim \
     wget
 
+  # Update ImageMagick's memory limits
+  sed -i -E 's/name="memory" value=".+"/name="memory" value="4GiB"/g' /etc/ImageMagick-6/policy.xml
+  sed -i -E 's/name="map" value=".+"/name="map" value="4GiB"/g' /etc/ImageMagick-6/policy.xml
+  sed -i -E 's/name="area" value=".+"/name="area" value="128MP"/g' /etc/ImageMagick-6/policy.xml
+  sed -i -E 's/name="disk" value=".+"/name="disk" value="20GiB"/g' /etc/ImageMagick-6/policy.xml
+
   # Build registration-toolkit
   cd /usr/local/educelab/registration-toolkit
   cmake -E make_directory build
