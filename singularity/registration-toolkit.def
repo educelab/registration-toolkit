@@ -16,6 +16,7 @@ From: ubuntu:22.04
     cmake \
     curl \
     git \
+    imagemagick \
     libopencv-dev \
     libvtk9-dev \
     libvtk9-qt-dev \
