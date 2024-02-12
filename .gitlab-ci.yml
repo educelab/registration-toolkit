@@ -14,20 +14,23 @@ variables:
     - *build_script
     - *test_script
 
-test:ubuntu:20.04:
+test:ubuntu:22.04:
   image: ubuntu:22.04
   extends: .build_and_test
   variables:
     DEBIAN_FRONTEND: noninteractive
   before_script:
     - apt-get -y update
-    - apt-get install -y build-essential git cmake ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
+    - apt-get install -y build-essential curl git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
+    - curl -OL https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.sh
+    - chmod +x cmake-3.28.3-linux-x86_64.sh
+    - ./cmake-3.28.3-linux-x86_64.sh --skip-license --prefix=/usr/local --exclude-subdir
   tags:
     - docker
 
 test:macos:
   extends: .build_and_test
   variables:
-      CMAKE_PREFIX_PATH: "/usr/local/educelab/vc-deps-1.7-static-debug"
+      CMAKE_PREFIX_PATH: "/usr/local/educelab/vc-deps-1.8.1-static-debug"
   tags:
     - macos
