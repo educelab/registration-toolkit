@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include <boost/program_options.hpp>
+#include <opencv2/core/utils/logger.hpp>
 
 #include "rt/DisegniSegmenter.hpp"
 #include "rt/filesystem.hpp"
@@ -11,6 +12,7 @@
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
+namespace cvl = cv::utils::logging;
 
 auto ParsePointString(const std::string& s) -> cv::Point;
 
@@ -76,6 +78,10 @@ int main(int argc, char* argv[])
         std::cerr << "ERROR: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+
+    // Silence OpenCV logging
+    cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
+
     // Load input
     fs::path inputPath = parsed["input"].as<std::string>();
     auto input = rt::ReadImage(inputPath);

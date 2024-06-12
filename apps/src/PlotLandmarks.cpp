@@ -3,6 +3,7 @@
 #include <boost/program_options.hpp>
 
 #include <opencv2/core.hpp>
+#include <opencv2/core/utils/logger.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -14,6 +15,7 @@ using namespace rt;
 
 namespace po = boost::program_options;
 namespace fs = rt::filesystem;
+namespace cvl = cv::utils::logging;
 
 int main(int argc, char* argv[])
 {
@@ -51,6 +53,9 @@ int main(int argc, char* argv[])
         std::cerr << "ERROR: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+
+    // Silence OpenCV logging
+    cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
 
     fs::path fixedPath = parsed["fixed"].as<std::string>();
     fs::path movingPath = parsed["moving"].as<std::string>();

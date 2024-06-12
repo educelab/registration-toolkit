@@ -28,7 +28,7 @@ static inline auto CreateAlphaChannel(const cv::Size& size, int depth)
     return alpha;
 }
 
-auto rt::QuantizeImage(const cv::Mat& m, int depth) -> cv::Mat
+auto rt::QuantizeImage(const cv::Mat& m, const int depth) -> cv::Mat
 {
     // Make sure we have work to do
     if (m.depth() == depth) {

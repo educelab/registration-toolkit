@@ -24,8 +24,10 @@ using Traverser = bvh::SingleRayTraverser<Bvh>;
 
 using namespace rt;
 
+namespace
+{
 // Generate the cartesian coordinate of barycentric coordinate uvw in tri abc
-static inline auto BaryToXYZ(
+auto BaryToXYZ(
     const cv::Vec3d& uvw,
     const cv::Vec3d& a,
     const cv::Vec3d& b,
@@ -36,8 +38,7 @@ static inline auto BaryToXYZ(
 
 // Get the vertices belong to a cell
 template <typename CellIterator>
-static inline auto GetCellVertices(
-    const ITKMesh::Pointer& mesh, CellIterator& cell)
+auto GetCellVertices(const ITKMesh::Pointer& mesh, CellIterator& cell)
 {
     std::vector<cv::Vec3d> pts;
     for (const auto& id : cell->Value()->GetPointIdsContainer()) {
@@ -51,13 +52,13 @@ static inline auto GetCellVertices(
 template <
     typename T,
     std::enable_if_t<std::is_floating_point<T>::value, bool> = true>
-static inline auto NearZero(T val, T eps = 1e-7) -> bool
+auto NearZero(T val, T eps = 1e-7) -> bool
 {
     return std::abs(val) <= eps;
 }
 
 // Calculate the pixel density of the UV map
-static inline auto ComputeUVDensity(
+auto ComputeUVDensity(
     const ITKMesh::Pointer& mesh,
     const UVMap& uv,
     double imgWidth,
@@ -74,7 +75,7 @@ static inline auto ComputeUVDensity(
          ++cell) {
 
         // Get the 3D vertices
-        auto pts = GetCellVertices(mesh, cell);
+        auto pts = ::GetCellVertices(mesh, cell);
 
         // Get the UV coordinates for this face
         auto uvs = uv.getFaceUVs(cell->Index());
@@ -110,6 +111,7 @@ static inline auto ComputeUVDensity(
 
     return density;
 }
+}  // namespace
 
 void ReorderUnorganizedTexture::setMesh(const ITKMesh::Pointer& mesh)
 {
@@ -218,7 +220,7 @@ void ReorderUnorganizedTexture::create_texture_()
 
     // Computes the OBB and returns the 3 axes relative to the box
     auto mesh = rt::ITK2VTK(inputMesh_);
-    std::array<double, 3> size;
+    std::array<double, 3> size{};
     auto obbTree = vtkSmartPointer<vtkOBBTree>::New();
     obbTree->ComputeOBB(
         mesh, origin_.val, xAxis_.val, yAxis_.val, zAxis_.val, size.data());
@@ -249,7 +251,7 @@ void ReorderUnorganizedTexture::create_texture_()
             rows = static_cast<int>(sampleDim_);
             break;
         case SamplingMode::AutoUV:
-            sampleRate = ComputeUVDensity(
+            sampleRate = ::ComputeUVDensity(
                 inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
             cols = static_cast<int>(std::ceil(xLen / sampleRate));
             rows = static_cast<int>(std::ceil(yLen / sampleRate));
@@ -259,7 +261,7 @@ void ReorderUnorganizedTexture::create_texture_()
     std::cerr << "Output size: " << cols << "x" << rows << " ";
     std::cerr << "(Sample rate: " << sampleRate << ")" << std::endl;
 
-    // Setup the output image
+    // Set up the output image
     outputTexture_ = cv::Mat::zeros(rows, cols, CV_8UC3);
     outputDepthMap_ = cv::Mat::zeros(rows, cols, CV_32FC1);
 
@@ -337,7 +339,7 @@ void ReorderUnorganizedTexture::create_texture_()
             // Get the UV position of the intersection point
             // Inexplicably, bvh barycentric coordinates are relative to the 2nd
             // pt?
-            auto cPoint = BaryToXYZ(bCoord, uvPts[1], uvPts[2], uvPts[0]);
+            auto cPoint = ::BaryToXYZ(bCoord, uvPts[1], uvPts[2], uvPts[0]);
 
             // Convert the UV position to pixel coordinates (in orig image)
             auto x = static_cast<float>(cPoint[0] * (inputTexture_.cols - 1));

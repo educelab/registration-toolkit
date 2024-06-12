@@ -1,12 +1,14 @@
 #include <iostream>
 
+#include <opencv2/core/utils/logger.hpp>
+
 #include "rt/LandmarkDetector.hpp"
 #include "rt/filesystem.hpp"
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
-#include "rt/util/ImageConversion.hpp"
 
 namespace fs = rt::filesystem;
+namespace cvl = cv::utils::logging;
 
 int main(int argc, const char* argv[])
 {
@@ -18,6 +20,9 @@ int main(int argc, const char* argv[])
             << std::endl;
         return EXIT_FAILURE;
     }
+
+    // Silence OpenCV logging
+    cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
 
     // Get the paths
     fs::path fixedPath = argv[1];

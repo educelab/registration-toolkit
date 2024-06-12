@@ -15,24 +15,82 @@ void LandmarkDetector::setFixedImage(const cv::Mat& img) { fixedImg_ = img; }
 void LandmarkDetector::setFixedMask(const cv::Mat& img) { fixedMask_ = img; }
 void LandmarkDetector::setMovingImage(const cv::Mat& img) { movingImg_ = img; }
 void LandmarkDetector::setMovingMask(const cv::Mat& img) { movingMask_ = img; }
-void LandmarkDetector::setMatchRatio(float r) { nnMatchRatio_ = r; }
-void LandmarkDetector::setMaxImageDim(int s) { maxImageDim_ = s; }
+void LandmarkDetector::setMatchRatio(const float r) { nnMatchRatio_ = r; }
+void LandmarkDetector::setMaxImageDim(const int s) { maxImageDim_ = s; }
 
 namespace
 {
-auto NeedsResize(const cv::Mat& img, int dimLimit, float& scale) -> bool
+auto NeedsResize(const cv::Mat& img, const int dimLimit, float& scale) -> bool
 {
-    auto maxDim = std::max(img.rows, img.cols);
-    auto res = maxDim > dimLimit;
+    const auto maxDim = std::max(img.rows, img.cols);
+    const auto res = maxDim > dimLimit;
     if (res) {
         scale = static_cast<float>(dimLimit) / static_cast<float>(maxDim);
     }
     return res;
 }
+
+auto RatioTest(
+    const std::vector<std::vector<cv::DMatch>>& matches,
+    const float ratio) -> std::vector<cv::DMatch>
+{
+    std::vector<cv::DMatch> goodMatches;
+    for (const auto& m : matches) {
+        if (m[0].distance < ratio * m[1].distance) {
+            goodMatches.push_back(m[0]);
+        }
+    }
+    return goodMatches;
+}
+
+auto DetectAndMatch(
+    const cv::Mat& fixedImg,
+    const cv::Mat& movingImg,
+    const cv::Mat& fixedMask,
+    const cv::Mat& movingMask,
+    const float ratio)
+{
+    const auto featureDetector = cv::SIFT::create();
+    const auto matcher =
+        cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
+    std::vector<cv::KeyPoint> fixedKeys;
+    std::vector<cv::KeyPoint> movingKeys;
+    cv::Mat fixedDesc;
+    cv::Mat movingDesc;
+    std::vector<std::vector<cv::DMatch>> matches;
+
+    // detect features
+    featureDetector->detectAndCompute(
+        fixedImg, fixedMask, fixedKeys, fixedDesc);
+    featureDetector->detectAndCompute(
+        movingImg, movingMask, movingKeys, movingDesc);
+
+    // Match keypoints
+    matcher->knnMatch(fixedDesc, movingDesc, matches, 2);
+
+    // Apply ratio test
+    const auto filtered = RatioTest(matches, ratio);
+
+    // collect the actual points
+    std::vector<cv::Point2f> fixed;
+    std::vector<cv::Point2f> moving;
+    for (const auto& m : filtered) {
+        fixed.push_back(fixedKeys[m.queryIdx].pt);
+        moving.emplace_back(movingKeys[m.trainIdx].pt);
+    }
+
+    // result struct
+    struct result {
+        std::vector<cv::DMatch> matches;
+        std::vector<cv::Point2f> fixed;
+        std::vector<cv::Point2f> moving;
+    };
+    return result{filtered, fixed, moving};
+}
 }  // namespace
 
 // Compute the matches
-auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
+auto LandmarkDetector::compute() -> std::vector<LandmarkPair>
 {
     // Make sure we have the images
     if (fixedImg_.empty() or movingImg_.empty()) {
@@ -43,13 +101,13 @@ auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
     output_.clear();
 
     // Resize inputs
-    cv::Mat fixedImg = QuantizeImage(fixedImg_, CV_8U);
-    cv::Mat movingImg = QuantizeImage(movingImg_, CV_8U);
+    cv::Mat fixedImg = QuantizeImage(ColorConvertImage(fixedImg_), CV_8U);
+    cv::Mat movingImg = QuantizeImage(ColorConvertImage(movingImg_), CV_8U);
     cv::Mat fixedMask = QuantizeImage(ColorConvertImage(fixedMask_), CV_8U);
     cv::Mat movingMask = QuantizeImage(ColorConvertImage(movingMask_), CV_8U);
     float fs{1.};
     float ms{1.};
-    if (::NeedsResize(fixedImg, maxImageDim_, fs)) {
+    if (NeedsResize(fixedImg, maxImageDim_, fs)) {
         cv::resize(fixedImg, fixedImg, cv::Size(), fs, fs, cv::INTER_AREA);
         std::cerr << "Resized fixed image: ";
         std::cerr << fixedImg.cols << "x" << fixedImg.rows << std::endl;
@@ -58,7 +116,7 @@ auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
                 fixedMask, fixedMask, cv::Size(), fs, fs, cv::INTER_AREA);
         }
     }
-    if (::NeedsResize(movingImg, maxImageDim_, ms)) {
+    if (NeedsResize(movingImg, maxImageDim_, ms)) {
         cv::resize(movingImg, movingImg, cv::Size(), ms, ms, cv::INTER_AREA);
         std::cerr << "Resized moving image: ";
         std::cerr << movingImg.cols << "x" << movingImg.rows << std::endl;
@@ -68,41 +126,49 @@ auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
         }
     }
 
-    // Detect key points and compute their descriptors
-    auto featureDetector = cv::SIFT::create();
-    std::vector<cv::KeyPoint> fixedKeys;
-    std::vector<cv::KeyPoint> movingKeys;
-    cv::Mat fixedDesc;
-    cv::Mat movingDesc;
-    featureDetector->detectAndCompute(
-        fixedImg, fixedMask, fixedKeys, fixedDesc);
-    featureDetector->detectAndCompute(
-        movingImg, movingMask, movingKeys, movingDesc);
-
-    // Match keypoints
-    auto matcher =
-        cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
-    std::vector<std::vector<cv::DMatch>> matches;
-    matcher->knnMatch(fixedDesc, movingDesc, matches, 2);
-
-    // Filter matches
+    // Set up detection and matching
     std::vector<cv::DMatch> goodMatches;
-    for (const auto& m : matches) {
-        if (m[0].distance < nnMatchRatio_ * m[1].distance) {
-            goodMatches.push_back(m[0]);
-        }
+    std::vector<cv::Point2f> fixed;
+    std::vector<cv::Point2f> moving;
+
+    // Detect + match in original images
+    if (enhanceMode_ == None or enhanceMode_ == OriginalWithCLAHE) {
+        auto [matches, fixedPts, movingPts] = DetectAndMatch(
+            fixedImg, movingImg, fixedMask, movingMask, nnMatchRatio_);
+        goodMatches.reserve(goodMatches.size() + matches.size());
+        goodMatches.insert(goodMatches.end(), matches.begin(), matches.end());
+
+        fixed.reserve(fixed.size() + fixedPts.size());
+        fixed.insert(fixed.end(), fixedPts.begin(), fixedPts.end());
+
+        moving.reserve(moving.size() + movingPts.size());
+        moving.insert(moving.end(), movingPts.begin(), movingPts.end());
+    }
+
+    // Detect + match in equalized images
+    if (enhanceMode_ == CLAHE or enhanceMode_ == OriginalWithCLAHE) {
+        auto s = static_cast<int>(8.F * ms / fs);
+        auto clahe = cv::createCLAHE(40., {s, s});
+        clahe->apply(fixedImg, fixedImg);
+
+        s = static_cast<int>(8.F * fs / ms);
+        clahe->setTilesGridSize({s, s});
+        clahe->apply(movingImg, movingImg);
+        auto [matches, fixedPts, movingPts] = DetectAndMatch(
+            fixedImg, movingImg, fixedMask, movingMask, nnMatchRatio_);
+        goodMatches.reserve(goodMatches.size() + matches.size());
+        goodMatches.insert(goodMatches.end(), matches.begin(), matches.end());
+
+        fixed.reserve(fixed.size() + fixedPts.size());
+        fixed.insert(fixed.end(), fixedPts.begin(), fixedPts.end());
+
+        moving.reserve(moving.size() + movingPts.size());
+        moving.insert(moving.end(), movingPts.begin(), movingPts.end());
     }
 
     // Use RANSAC to filter matches further
-    // TODO: It's a shame that we can't keep and use this homography...
-    std::vector<cv::Point2f> fixed;
-    std::vector<cv::Point2f> moving;
     cv::Mat mask;
-    for (const auto& m : goodMatches) {
-        fixed.push_back(fixedKeys[m.queryIdx].pt);
-        moving.emplace_back(movingKeys[m.trainIdx].pt);
-    }
-    cv::findHomography(moving, fixed, cv::RANSAC, 3., mask);
+    cv::estimateAffinePartial2D(moving, fixed, mask, cv::RANSAC, 1.);
 
     // Convert good matches to landmark pairs
     // query = fixed, train = moving
@@ -119,8 +185,8 @@ auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
 
         // From fixed -> moving
         if (m.imgIdx == 0) {
-            auto fixPt = fixedKeys[m.queryIdx].pt * fs;
-            auto movPt = movingKeys[m.trainIdx].pt * ms;
+            auto fixPt = fixed[idx] * fs;
+            auto movPt = moving[idx] * ms;
             output_.emplace_back(fixPt, movPt);
         }
 
@@ -135,7 +201,7 @@ auto LandmarkDetector::compute() -> std::vector<rt::LandmarkPair>
 }
 
 // Return previously computed matches
-auto LandmarkDetector::getLandmarkPairs() -> std::vector<rt::LandmarkPair>
+auto LandmarkDetector::getLandmarkPairs() -> std::vector<LandmarkPair>
 {
     return output_;
 }
@@ -144,10 +210,10 @@ auto LandmarkDetector::getFixedLandmarks() const -> LandmarkContainer
 {
     LandmarkContainer res;
     Landmark l;
-    for (const auto& p : output_) {
-        l[0] = p.first.x;
-        l[1] = p.first.y;
-        res.push_back(l);
+    for (const auto& [fixed, _] : output_) {
+        l[0] = fixed.x;
+        l[1] = fixed.y;
+        res.emplace_back(l);
     }
     return res;
 }
@@ -156,9 +222,9 @@ auto LandmarkDetector::getMovingLandmarks() const -> LandmarkContainer
 {
     LandmarkContainer res;
     Landmark l;
-    for (const auto& p : output_) {
-        l[0] = p.second.x;
-        l[1] = p.second.y;
+    for (const auto& [_, moving] : output_) {
+        l[0] = moving.x;
+        l[1] = moving.y;
         res.push_back(l);
     }
     return res;
@@ -167,3 +233,13 @@ auto LandmarkDetector::getMovingLandmarks() const -> LandmarkContainer
 auto LandmarkDetector::matchRatio() const -> float { return nnMatchRatio_; }
 
 auto LandmarkDetector::maxImageDim() const -> int { return maxImageDim_; }
+
+void LandmarkDetector::setEnhancementMode(const EnhancementMode m)
+{
+    enhanceMode_ = m;
+}
+
+auto LandmarkDetector::enhancementMode() const -> EnhancementMode
+{
+    return enhanceMode_;
+}

@@ -2,6 +2,8 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
+#include <opencv2/core/utils/logger.hpp>
+#include <rt/util/String.hpp>
 #include <smgl/Graph.hpp>
 #include <smgl/Graphviz.hpp>
 
@@ -15,6 +17,7 @@ using namespace rt::graph;
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
+namespace cvl = cv::utils::logging;
 
 static const auto IsFormat = rt::FileExtensionFilter;
 
@@ -63,6 +66,9 @@ auto main(int argc, char* argv[]) -> int
         ("landmark-match-ratio", po::value<float>()->default_value(0.7F),
             "Matching ratio for automatically detected features. Smaller "
             "values represent closer matches.")
+        ("landmark-enhancement", po::value<std::string>()->default_value("original-clahe"),
+            "Image enhancement applied prior to landmark detection: "
+            "'none', 'clahe', 'original-clahe'")
         ("output-ldm", po::value<std::string>(),
             "Output file path for the generated landmarks file");
 
@@ -99,6 +105,9 @@ auto main(int argc, char* argv[]) -> int
         std::cerr << "ERROR: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+
+    // Silence OpenCV logging
+    cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
 
     fs::path fixedPath = parsed["fixed"].as<std::string>();
     fs::path movingPath = parsed["moving"].as<std::string>();
@@ -165,6 +174,24 @@ auto main(int argc, char* argv[]) -> int
             genLdm->movingImage = moving->image;
             genLdm->matchRatio = parsed["landmark-match-ratio"].as<float>();
             ldmNode = genLdm;
+
+            auto enhanceStr = parsed["landmark-enhancement"].as<std::string>();
+            rt::to_lower(enhanceStr);
+            LandmarkDetector::EnhancementMode mode{
+                LandmarkDetector::OriginalWithCLAHE};
+            if (enhanceStr == "none") {
+                mode = LandmarkDetector::None;
+            } else if (enhanceStr == "clahe") {
+                mode = LandmarkDetector::CLAHE;
+            } else if (enhanceStr == "original-clahe") {
+                mode = LandmarkDetector::OriginalWithCLAHE;
+            } else {
+                std::cerr << "WARNING: ";
+                std::cerr << "Unrecognized landmark enhancement mode: ";
+                std::cerr << "'" << enhanceStr << "'. ";
+                std::cerr << "Defaulting to 'original-clahe'.\n";
+            }
+            genLdm->enhancementMode = mode;
 
             // Optionally load masks
             if (parsed.count("fixed-mask") > 0) {
