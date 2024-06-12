@@ -2,6 +2,7 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
+#include <opencv2/core/utils/logger.hpp>
 #include <smgl/Graphviz.hpp>
 #include <smgl/smgl.hpp>
 
@@ -12,6 +13,7 @@
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
+namespace cvl = cv::utils::logging;
 
 using namespace rt;
 using namespace rt::graph;
@@ -91,6 +93,9 @@ auto main(int argc, char* argv[]) -> int
         std::cerr << "ERROR: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+
+    // Silence OpenCV logging
+    cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
 
     fs::path inputPath = parsed["input-mesh"].as<std::string>();
     fs::path outputPath = parsed["output-mesh"].as<std::string>();

@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <boost/program_options.hpp>
+#include <opencv2/core/utils/logger.hpp>
 
 #include "rt/filesystem.hpp"
 #include "rt/io/ImageIO.hpp"
@@ -9,6 +10,7 @@
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
+namespace cvl = cv::utils::logging;
 
 auto main(int argc, char** argv) -> int
 {
@@ -43,6 +45,9 @@ auto main(int argc, char** argv) -> int
         std::cerr << "ERROR: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
+
+    // Silence OpenCV logging
+    cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
 
     // Load mesh
     const fs::path inputPath = parsed["input-mesh"].as<std::string>();

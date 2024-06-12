@@ -22,6 +22,9 @@ namespace rt::graph
 class LandmarkDetectorNode : public smgl::Node
 {
 public:
+    /** @see LandmarkDetector::EnhancementMode */
+    using EnhancementMode = LandmarkDetector::EnhancementMode;
+
     /** Default constructor */
     LandmarkDetectorNode();
 
@@ -41,6 +44,9 @@ public:
     /** @copydoc LandmarkDetector::setMaxImageDim(int) */
     smgl::InputPort<int> maxImageDim{
         &detector_, &LandmarkDetector::setMaxImageDim};
+    /** @copydoc LandmarkDetector::setEnhancementMode(EnhancementMode) */
+    smgl::InputPort<EnhancementMode> enhancementMode{
+        &detector_, &LandmarkDetector::setEnhancementMode};
     /**@}*/
 
     /** @name Output Ports */

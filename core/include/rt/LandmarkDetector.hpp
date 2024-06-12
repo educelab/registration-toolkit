@@ -20,9 +20,8 @@ using LandmarkPair = std::pair<cv::Point2f, cv::Point2f>;
 /**
  * @class LandmarkDetector
  * @brief Automatically generate landmark pairs between a two images
- * @author Ali Bertelsman
  *
- * Uses AKAZE feature descriptors to generate pairs of matching key points
+ * Uses SIFT feature descriptors to generate pairs of matching key points
  * between two images. To create key points bounded by a region of interest,
  * set the mask for either the static or moving image.
  *
@@ -30,6 +29,15 @@ using LandmarkPair = std::pair<cv::Point2f, cv::Point2f>;
 class LandmarkDetector
 {
 public:
+    /**
+     * @brief The image enhancement mode applied before feature detection
+     */
+    enum EnhancementMode {
+        None,             /** Features drawn from original images only */
+        CLAHE,            /** Features drawn from CLAHE images only */
+        OriginalWithCLAHE /** Features drawn from original and CLAHE images */
+    };
+
     /** @brief Set the fixed image */
     void setFixedImage(const cv::Mat& img);
     /** @brief Set the fixed image mask */
@@ -51,6 +59,18 @@ public:
     void setMaxImageDim(int s);
     /** @copydoc setMaxImageDim(int) */
     [[nodiscard]] auto maxImageDim() const -> int;
+
+    /**
+     * @brief Image enhancement mode
+     *
+     * Optionally, the input images may be automatically enhanced to help
+     * improve feature detection and matching.
+     *
+     * @see EnhancementMode
+     */
+    void setEnhancementMode(EnhancementMode m);
+    /** @copydoc setEnhancementMode(EnhancementMode) */
+    [[nodiscard]] auto enhancementMode() const -> EnhancementMode;
 
     /** @brief Compute key point matches between the fixed and moving images
      *
@@ -87,5 +107,7 @@ private:
     float nnMatchRatio_{0.7F};
     /** Maximum image size for feature detection */
     int maxImageDim_{4096};
+    /** Enhancement mode */
+    EnhancementMode enhanceMode_{OriginalWithCLAHE};
 };
 }  // namespace rt

@@ -5,6 +5,19 @@
 namespace rtg = rt::graph;
 namespace fs = rt::filesystem;
 
+// Enum conversions
+namespace rt
+{
+// clang-format off
+using EnhancementNode = rtg::LandmarkDetectorNode::EnhancementMode;
+NLOHMANN_JSON_SERIALIZE_ENUM(EnhancementNode, {
+    {EnhancementNode::None, "none"},
+    {EnhancementNode::CLAHE, "clahe"},
+    {EnhancementNode::OriginalWithCLAHE, "original-clahe"}
+})
+// clang-format on
+}  // namespace rt
+
 rtg::LandmarkDetectorNode::LandmarkDetectorNode() : Node{true}
 {
     registerInputPort("fixedImage", fixedImage);
@@ -13,6 +26,7 @@ rtg::LandmarkDetectorNode::LandmarkDetectorNode() : Node{true}
     registerInputPort("movingMask", movingMask);
     registerInputPort("matchRatio", matchRatio);
     registerInputPort("maxImageDim", maxImageDim);
+    registerInputPort("enhancementMode", enhancementMode);
     registerOutputPort("fixedLandmarks", fixedLandmarks);
     registerOutputPort("movingLandmarks", movingLandmarks);
     compute = [this]() {
@@ -32,7 +46,8 @@ smgl::Metadata rtg::LandmarkDetectorNode::serialize_(
 {
     smgl::Metadata m{
         {"matchRatio", detector_.matchRatio()},
-        {"maxImageDim", detector_.maxImageDim()}};
+        {"maxImageDim", detector_.maxImageDim()},
+        {"enhancementMode", detector_.enhancementMode()}};
     if (useCache) {
         LandmarkWriter writer;
         writer.setPath(cacheDir / "landmarks.ldm");
@@ -50,8 +65,13 @@ void rtg::LandmarkDetectorNode::deserialize_(
 {
     detector_.setMatchRatio(meta["matchRatio"].get<float>());
     detector_.setMaxImageDim(meta["maxImageDim"].get<int>());
+    auto mode = EnhancementMode::OriginalWithCLAHE;
+    if (meta.contains("enhancementMode")) {
+        mode = meta["enhancementMode"].get<EnhancementMode>();
+    }
+    detector_.setEnhancementMode(mode);
     if (meta.contains("landmarks")) {
-        auto file = meta["landmarks"].get<std::string>();
+        const auto file = meta["landmarks"].get<std::string>();
         LandmarkReader reader;
         reader.setLandmarksPath(cacheDir / file);
         reader.read();

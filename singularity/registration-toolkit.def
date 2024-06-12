@@ -13,7 +13,6 @@ From: ubuntu:22.04
   apt update
   DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends \
     build-essential \
-    cmake \
     curl \
     git \
     imagemagick \
@@ -27,6 +26,12 @@ From: ubuntu:22.04
     vim \
     wget
 
+  # Install CMake
+  curl -O -L https://github.com/Kitware/CMake/releases/download/v3.29.5/cmake-3.29.5-linux-x86_64.sh
+  chmod +x cmake-3.29.5-linux-x86_64.sh
+  ./cmake-3.29.5-linux-x86_64.sh --prefix=/usr/local/ --skip-license
+  rm cmake-3.29.5-linux-x86_64.sh
+
   # Update ImageMagick's memory limits
   sed -i -E 's/name="memory" value=".+"/name="memory" value="4GiB"/g' /etc/ImageMagick-6/policy.xml
   sed -i -E 's/name="map" value=".+"/name="map" value="4GiB"/g' /etc/ImageMagick-6/policy.xml
@@ -35,7 +40,6 @@ From: ubuntu:22.04
 
   # Build registration-toolkit
   cd /usr/local/educelab/registration-toolkit
-  cmake -E make_directory build
   cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
   cmake --build build
 
