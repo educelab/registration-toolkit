@@ -2,6 +2,7 @@
 
 /** @file */
 
+#include <cstddef>
 #include <regex>
 #include <string>
 #include <vector>
@@ -18,7 +19,7 @@ inline auto FileExtensionFilter(
     const filesystem::path& path, const ExtensionList& exts) -> bool
 {
     std::string regexExpression = ".*\\.(";
-    size_t count = 0;
+    std::size_t count = 0;
     for (const auto& e : exts) {
         regexExpression.append(e);
         if (++count < exts.size()) {

@@ -1,5 +1,8 @@
 #include "rt/types/UVMap.hpp"
 
+#include <csignal>
+#include <exception>
+
 using namespace rt;
 
 /** Top-left UV Origin */
@@ -15,9 +18,9 @@ static auto GetOriginVector(const UVMap::Origin& o) -> cv::Vec2d;
 
 UVMap::UVMap(UVMap::Origin o) : origin_{o} {}
 
-auto UVMap::size() const -> size_t { return uvs_.size(); }
+auto UVMap::size() const -> std::size_t { return uvs_.size(); }
 
-auto UVMap::size_faces() const -> size_t { return faces_.size(); }
+auto UVMap::size_faces() const -> std::size_t { return faces_.size(); }
 
 auto UVMap::empty() const -> bool { return uvs_.empty(); }
 
@@ -43,7 +46,7 @@ void UVMap::ratio(double w, double h)
     ratio_.aspect = w / h;
 }
 
-auto UVMap::addUV(const cv::Vec2d& uv, const Origin& o) -> size_t
+auto UVMap::addUV(const cv::Vec2d& uv, const Origin& o) -> std::size_t
 {
     // transform to be relative to top-left
     cv::Vec2d transformed;
@@ -53,9 +56,12 @@ auto UVMap::addUV(const cv::Vec2d& uv, const Origin& o) -> size_t
     return uvs_.size() - 1;
 }
 
-auto UVMap::addUV(const cv::Vec2d& uv) -> size_t { return addUV(uv, origin_); }
+auto UVMap::addUV(const cv::Vec2d& uv) -> std::size_t
+{
+    return addUV(uv, origin_);
+}
 
-auto UVMap::getUV(size_t id, const Origin& o) const -> cv::Vec2d
+auto UVMap::getUV(std::size_t id, const Origin& o) const -> cv::Vec2d
 {
     if (id >= uvs_.size()) {
         throw std::range_error("uv id not in uv map: " + std::to_string(id));
@@ -67,15 +73,18 @@ auto UVMap::getUV(size_t id, const Origin& o) const -> cv::Vec2d
     return transformed;
 }
 
-auto UVMap::getUV(size_t id) const -> cv::Vec2d { return getUV(id, origin_); }
+auto UVMap::getUV(std::size_t id) const -> cv::Vec2d
+{
+    return getUV(id, origin_);
+}
 
-auto UVMap::addFace(std::size_t idx, const Face& f) -> size_t
+auto UVMap::addFace(std::size_t idx, const Face& f) -> std::size_t
 {
     faces_[idx] = f;
     return idx;
 }
 
-auto UVMap::addFace(size_t a, size_t b, size_t c) -> size_t
+auto UVMap::addFace(std::size_t a, std::size_t b, std::size_t c) -> std::size_t
 {
     auto idx = faces_.size();
     while (faces_.count(idx) > 0) {
@@ -90,7 +99,10 @@ auto UVMap::hasFace(std::size_t idx) const -> bool
     return faces_.count(idx) > 0;
 }
 
-auto UVMap::getFace(size_t id) const -> UVMap::Face { return faces_.at(id); }
+auto UVMap::getFace(std::size_t id) const -> UVMap::Face
+{
+    return faces_.at(id);
+}
 
 auto UVMap::getFaceUVs(std::size_t id) const -> std::vector<cv::Vec2d>
 {
@@ -109,5 +121,7 @@ auto GetOriginVector(const UVMap::Origin& o) -> cv::Vec2d
             return ORIGIN_BOTTOM_LEFT;
         case UVMap::Origin::BottomRight:
             return ORIGIN_BOTTOM_RIGHT;
+        default:
+            return ORIGIN_TOP_LEFT;
     }
 }

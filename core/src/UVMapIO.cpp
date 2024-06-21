@@ -1,5 +1,6 @@
 #include "rt/io/UVMapIO.hpp"
 
+#include <cstddef>
 #include <fstream>
 #include <regex>
 #include <sstream>
@@ -19,15 +20,15 @@ void rt::WriteUVMap(const fs::path& path, const UVMap& uvMap)
 
     // Header
     std::stringstream ss;
-    ss << "filetype: uvmap" << std::endl;
-    ss << "version: 1" << std::endl;
-    ss << "type: per-face" << std::endl;
-    ss << "size: " << uvMap.size() << std::endl;
-    ss << "width: " << uvMap.ratio().width << std::endl;
-    ss << "height: " << uvMap.ratio().height << std::endl;
-    ss << "origin: " << static_cast<int>(uvMap.origin()) << std::endl;
-    ss << "faces: " << uvMap.size_faces() << std::endl;
-    ss << "<>" << std::endl;
+    ss << "filetype: uvmap\n";
+    ss << "version: 1\n";
+    ss << "type: per-face\n";
+    ss << "size: " << uvMap.size() << "\n";
+    ss << "width: " << uvMap.ratio().width << "\n";
+    ss << "height: " << uvMap.ratio().height << "\n";
+    ss << "origin: " << static_cast<int>(uvMap.origin()) << "\n";
+    ss << "faces: " << uvMap.size_faces() << "\n";
+    ss << "<>\n";
     ofs << ss.rdbuf();
 
     // Write the UV coords
@@ -37,9 +38,10 @@ void rt::WriteUVMap(const fs::path& path, const UVMap& uvMap)
 
     // Write the faces
     for (const auto& f : uvMap.faces_as_map()) {
-        ofs.write(reinterpret_cast<const char*>(&f.first), sizeof(size_t));
+        ofs.write(reinterpret_cast<const char*>(&f.first), sizeof(std::size_t));
         ofs.write(
-            reinterpret_cast<const char*>(f.second.val), 3 * sizeof(size_t));
+            reinterpret_cast<const char*>(f.second.val),
+            3 * sizeof(std::size_t));
     }
 
     ofs.close();
@@ -55,13 +57,13 @@ auto rt::ReadUVMap(const fs::path& path) -> rt::UVMap
 
     struct Header {
         std::string fileType;
-        int version;
+        int version{0};
         std::string type;
-        size_t size;
+        std::size_t size{0};
         double width{0};
         double height{0};
         int origin{-1};
-        size_t faces;
+        std::size_t faces{0};
     };
 
     // Regexes
@@ -167,7 +169,7 @@ auto rt::ReadUVMap(const fs::path& path) -> rt::UVMap
     map.ratio(h.width, h.height);
 
     // Read all of the points
-    for (size_t i = 0; i < h.size; i++) {
+    for (std::size_t i = 0; i < h.size; i++) {
         std::ignore = i;
         cv::Vec2d uv;
         ifs.read(reinterpret_cast<char*>(uv.val), 2 * sizeof(double));
@@ -175,12 +177,12 @@ auto rt::ReadUVMap(const fs::path& path) -> rt::UVMap
     }
 
     // Read all of the faces
-    for (size_t i = 0; i < h.faces; i++) {
+    for (std::size_t i = 0; i < h.faces; i++) {
         std::ignore = i;
         std::size_t idx{0};
-        ifs.read(reinterpret_cast<char*>(&idx), sizeof(size_t));
+        ifs.read(reinterpret_cast<char*>(&idx), sizeof(std::size_t));
         UVMap::Face f;
-        ifs.read(reinterpret_cast<char*>(f.val), 3 * sizeof(size_t));
+        ifs.read(reinterpret_cast<char*>(f.val), 3 * sizeof(std::size_t));
         map.addFace(idx, f);
     }
 

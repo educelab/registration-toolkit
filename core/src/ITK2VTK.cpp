@@ -19,8 +19,8 @@ void rt::ITK2VTK(
 {
 
     // points + normals
-    auto points = vtkSmartPointer<vtkPoints>::New();
-    auto pointNormals = vtkSmartPointer<vtkDoubleArray>::New();
+    const auto points = vtkSmartPointer<vtkPoints>::New();
+    const auto pointNormals = vtkSmartPointer<vtkDoubleArray>::New();
     pointNormals->SetNumberOfComponents(3);  // 3d normals (ie x,y,z)
 
     for (auto point = input->GetPoints()->Begin();
@@ -39,12 +39,12 @@ void rt::ITK2VTK(
     }
 
     // cells
-    auto polys = vtkSmartPointer<vtkCellArray>::New();
+    const auto polys = vtkSmartPointer<vtkCellArray>::New();
     for (auto cell = input->GetCells()->Begin();
          cell != input->GetCells()->End(); ++cell) {
 
         auto poly = vtkSmartPointer<vtkIdList>::New();
-        for (auto* point = cell.Value()->PointIdsBegin();
+        for (const auto* point = cell.Value()->PointIdsBegin();
              point != cell.Value()->PointIdsEnd(); ++point) {
             poly->InsertNextId(*point);
         }
@@ -79,7 +79,7 @@ void rt::VTK2ITK(
         auto* point = input->GetPoint(pointId);
         output->SetPoint(pointId, point);
         if (pointNormals != nullptr) {
-            auto* normal = pointNormals->GetTuple(pointId);
+            const auto* normal = pointNormals->GetTuple(pointId);
             output->SetPointData(pointId, normal);
         }
     }
@@ -87,14 +87,16 @@ void rt::VTK2ITK(
     // cells
     ITKCell::CellAutoPointer cell;
     for (vtkIdType cellId = 0; cellId < input->GetNumberOfCells(); ++cellId) {
-        auto* inputCell = input->GetCell(cellId);  // input cell
-        cell.TakeOwnership(new ITKTriangle);      // output cell
+        // input/output cell
+        auto* inputCell = input->GetCell(cellId);
+        cell.TakeOwnership(new ITKTriangle);
 
+        // assign the point id's
         for (vtkIdType pointId = 0; pointId < inputCell->GetNumberOfPoints();
              ++pointId) {
             cell->SetPointId(
-                pointId,
-                inputCell->GetPointId(pointId));  // assign the point id's
+                static_cast<int>(pointId),
+                inputCell->GetPointId(static_cast<int>(pointId)));
         }
 
         output->SetCell(cellId, cell);

@@ -1,5 +1,7 @@
 #include "rt/io/TIFFIO.hpp"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include <opencv2/imgproc.hpp>
@@ -19,8 +21,9 @@ namespace fs = rt::filesystem;
 // Return a CV Mat type using TIF type (signed, unsigned, float),
 // bit-depth, and number of channels
 static auto GetCVMatType(
-    const uint16_t tifType, const uint16_t depth, const uint16_t channels)
-    -> int
+    const std::uint16_t tifType,
+    const std::uint16_t depth,
+    const std::uint16_t channels) -> int
 {
     switch (depth) {
         case 8:
@@ -64,37 +67,37 @@ auto io::ReadRawTIFF(const fs::path& path, int offset) -> cv::Mat
     }
 
     // Get metadata
-    uint32_t width = 0;
-    uint32_t height = 0;
-    uint16_t type = 1;
-    uint16_t depth = 1;
-    uint16_t channels = 1;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    std::uint16_t type = 1;
+    std::uint16_t depth = 1;
+    std::uint16_t channels = 1;
     TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
     TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &height);
     TIFFGetField(tif, TIFFTAG_SAMPLEFORMAT, &type);
     TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &depth);
     TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, &channels);
-    auto cvType = GetCVMatType(type, depth, channels);
+    const auto cvType = GetCVMatType(type, depth, channels);
 
     // Apply offset to first strip
     if (offset != 0) {
-        uint32_t* offsets{nullptr};
+        std::uint32_t* offsets{nullptr};
         TIFFGetField(tif, TIFFTAG_STRIPOFFSETS, &offsets);
         offsets[0] += offset;
         TIFFSetField(tif, TIFFTAG_STRIPOFFSETS, offsets);
     }
 
     // Read only the first strip
-    uint32_t* bc{nullptr};
-    lt::tstrip_t strip = 0;
+    std::uint32_t* bc{nullptr};
+    const lt::tstrip_t strip = 0;
     TIFFGetField(tif, TIFFTAG_STRIPBYTECOUNTS, &bc);
-    uint32_t stripsize = bc[strip];
-    lt::tdata_t buf = lt::_TIFFmalloc(stripsize);
+    const std::uint32_t stripsize = bc[strip];
+    const lt::tdata_t buf = lt::_TIFFmalloc(stripsize);
     TIFFReadRawStrip(tif, strip, buf, bc[strip]);
 
     // Put into the cv::Mat
-    auto h = static_cast<int>(height);
-    auto w = static_cast<int>(width);
+    const auto h = static_cast<int>(height);
+    const auto w = static_cast<int>(width);
     output = cv::Mat(h, w, cvType, buf);
 
     lt::_TIFFfree(buf);
@@ -119,10 +122,10 @@ void io::WriteTIFF(const fs::path& path, const cv::Mat& img)
     }
 
     // Image metadata
-    auto channels = img.channels();
-    auto width = static_cast<unsigned>(img.cols);
-    auto height = static_cast<unsigned>(img.rows);
-    auto rowsPerStrip = height;
+    const auto channels = img.channels();
+    const auto width = static_cast<unsigned>(img.cols);
+    const auto height = static_cast<unsigned>(img.rows);
+    const auto rowsPerStrip = height;
 
     // Sample format
     int bitsPerSample{-1};
@@ -196,7 +199,7 @@ void io::WriteTIFF(const fs::path& path, const cv::Mat& img)
     // TODO: Let user decide associated/unassociated tag
     // See TIFF 6.0 spec, section 18
     if (channels == 2 or channels == 4) {
-        std::array<uint16_t, 1> tag{EXTRASAMPLE_UNASSALPHA};
+        std::array<std::uint16_t, 1> tag{EXTRASAMPLE_UNASSALPHA};
         lt::TIFFSetField(out, TIFFTAG_EXTRASAMPLES, 1, tag.data());
     }
 
@@ -206,7 +209,7 @@ void io::WriteTIFF(const fs::path& path, const cv::Mat& img)
 
     // Row buffer. OpenCV documentation mentions that TIFFWriteScanline
     // modifies its read buffer, so we can't use the cv::Mat directly
-    auto bufferSize = static_cast<size_t>(lt::TIFFScanlineSize(out));
+    const auto bufferSize = static_cast<std::size_t>(lt::TIFFScanlineSize(out));
     std::vector<char> buffer(bufferSize + 32);
 
     // Get working copy with converted channels if an RGB-type image
@@ -222,10 +225,10 @@ void io::WriteTIFF(const fs::path& path, const cv::Mat& img)
     // For each row
     for (unsigned row = 0; row < height; row++) {
         std::memcpy(&buffer[0], imgCopy.ptr(static_cast<int>(row)), bufferSize);
-        auto result = lt::TIFFWriteScanline(out, &buffer[0], row, 0);
+        const auto result = lt::TIFFWriteScanline(out, &buffer[0], row, 0);
         if (result == -1) {
             lt::TIFFClose(out);
-            auto msg = "Failed to write row " + std::to_string(row);
+            const auto msg = "Failed to write row " + std::to_string(row);
             throw std::runtime_error(msg);
         }
     }

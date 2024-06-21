@@ -14,11 +14,11 @@ int main(int argc, char* argv[])
     }
 
     // Get inputs
-    fs::path input = argv[1];
-    fs::path output = argv[2];
+    const fs::path input = argv[1];
+    const fs::path output = argv[2];
 
     // Load image
-    auto img = rt::io::ReadRawTIFF(input, 10);
+    const auto img = rt::io::ReadRawTIFF(input, 10);
 
     // Save image
     rt::WriteImage(output, img);

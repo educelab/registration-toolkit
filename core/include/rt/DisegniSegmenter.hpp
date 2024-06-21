@@ -114,13 +114,14 @@ private:
     int bboxBuffer_{10};
 
     /** Preprocessing */
-    auto preprocess_() -> cv::Mat;
+    auto preprocess_() const -> cv::Mat;
 
     /** Run watershed on image */
     auto watershed_image_(const cv::Mat& input) -> cv::Mat;
 
     /** Use labeled image to convert input into several images */
-    auto split_labeled_image_(const cv::Mat& input, const cv::Mat& labeled)
-        -> std::vector<cv::Mat> const;
+    [[nodiscard]] auto split_labeled_image_(
+        const cv::Mat& input,
+        const cv::Mat& labeled) const -> std::vector<cv::Mat>;
 };
 }  // namespace rt

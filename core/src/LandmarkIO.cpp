@@ -1,5 +1,6 @@
 #include "rt/io/LandmarkIO.hpp"
 
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -42,7 +43,7 @@ void LandmarkWriter::write()
     }
 
     // Write the landmarks
-    for (size_t i = 0; i < fixed_.size(); i++) {
+    for (std::size_t i = 0; i < fixed_.size(); i++) {
         file << fixed_.at(i)[0] << " ";
         file << fixed_.at(i)[1] << " ";
         file << moving_.at(i)[0] << " ";
@@ -154,8 +155,8 @@ auto rt::ReadLandmarkContainer(const fs::path& path) -> LandmarkContainer
 
     struct Header {
         std::string filetype;
-        size_t size{0};
-        size_t dim{0};
+        std::size_t size{0};
+        std::size_t dim{0};
         std::string type;
     };
 
@@ -222,7 +223,7 @@ auto rt::ReadLandmarkContainer(const fs::path& path) -> LandmarkContainer
     // Read data
     LandmarkContainer lc;
     Landmark l;
-    for (size_t i = 0; i < h.size; i++) {
+    for (std::size_t i = 0; i < h.size; i++) {
         std::ignore = i;
         file.read(
             reinterpret_cast<char*>(l.GetDataPointer()), 2 * sizeof(double));

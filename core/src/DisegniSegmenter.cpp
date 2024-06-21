@@ -1,6 +1,7 @@
 #include "rt/DisegniSegmenter.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <exception>
 #include <limits>
 #include <map>
@@ -44,7 +45,7 @@ void DisegniSegmenter::setBoundingBoxBuffer(int b) { bboxBuffer_ = b; }
 
 auto DisegniSegmenter::compute() -> std::vector<cv::Mat>
 {
-    auto processed = preprocess_();
+    const auto processed = preprocess_();
     labeled_ = watershed_image_(processed);
     results_ = split_labeled_image_(input_, labeled_);
     return results_;
@@ -58,19 +59,22 @@ auto DisegniSegmenter::getLabeledImage(bool colored) -> cv::Mat
     }
 
     // Get the unique labels
-    std::set<int32_t> uniqueLabels(
-        labeled_.begin<int32_t>(), labeled_.end<int32_t>());
+    const std::set<std::int32_t> uniqueLabels(
+        labeled_.begin<std::int32_t>(), labeled_.end<std::int32_t>());
 
     // Generate random colors for each label
-    std::map<int32_t, cv::Vec3b> colors;
+    std::map<std::int32_t, cv::Vec3b> colors;
     for (const auto& l : uniqueLabels) {
         // Border pixels are black
         if (l == -1) {
             colors[l] = cv::Vec3b{0, 0, 0};
         } else {
-            auto b = static_cast<uint8_t>(cv::theRNG().uniform(0, 256));
-            auto g = static_cast<uint8_t>(cv::theRNG().uniform(0, 256));
-            auto r = static_cast<uint8_t>(cv::theRNG().uniform(0, 256));
+            const auto b =
+                static_cast<std::uint8_t>(cv::theRNG().uniform(0, 256));
+            const auto g =
+                static_cast<std::uint8_t>(cv::theRNG().uniform(0, 256));
+            const auto r =
+                static_cast<std::uint8_t>(cv::theRNG().uniform(0, 256));
             colors[l] = cv::Vec3b{b, g, r};
         }
     }
@@ -94,7 +98,7 @@ auto DisegniSegmenter::getOutputImages() const -> std::vector<cv::Mat>
     return results_;
 }
 
-auto DisegniSegmenter::preprocess_() -> cv::Mat
+auto DisegniSegmenter::preprocess_() const -> cv::Mat
 {
     // Duplicate the input image
     auto processed = input_.clone();
@@ -102,7 +106,7 @@ auto DisegniSegmenter::preprocess_() -> cv::Mat
     // Change white pixels to black pixels. Helps images w/white backgrounds
     if (whiteToBlack_) {
         auto it = processed.begin<cv::Vec3b>();
-        auto end = processed.end<cv::Vec3b>();
+        const auto end = processed.end<cv::Vec3b>();
         for (; it != end; ++it) {
             if (*it == WHITE) {
                 *it = BLACK;
@@ -114,7 +118,8 @@ auto DisegniSegmenter::preprocess_() -> cv::Mat
     if (sharpen_) {
         cv::Mat laplace;
         cv::Mat srcFloat;
-        cv::Mat kernel = (cv::Mat_<float>(3, 3) << 1, 1, 1, 1, -8, 1, 1, 1, 1);
+        const cv::Mat kernel =
+            (cv::Mat_<float>(3, 3) << 1, 1, 1, 1, -8, 1, 1, 1, 1);
         cv::filter2D(processed, laplace, CV_32F, kernel);
         processed.convertTo(srcFloat, CV_32F);
         processed = srcFloat - laplace;
@@ -141,12 +146,12 @@ auto DisegniSegmenter::watershed_image_(const cv::Mat& input) -> cv::Mat
 
     // We have two reserved labels and cv::watershed only supports positive
     // integer labels, so protect against too many provided seeds
-    if (fgSeeds_.size() > std::numeric_limits<int32_t>::max() - 2) {
+    if (fgSeeds_.size() > std::numeric_limits<std::int32_t>::max() - 2) {
         throw std::overflow_error("Number of object seeds exceeds maximum");
     }
 
     // Seed our foreground labels with user-provided coords
-    int32_t label = 2;
+    std::int32_t label = 2;
     for (const auto& coord : fgSeeds_) {
         cv::circle(labeled, coord, seedSize_, cv::Scalar(label++), -1);
     }
@@ -159,18 +164,18 @@ auto DisegniSegmenter::watershed_image_(const cv::Mat& input) -> cv::Mat
 }
 
 auto DisegniSegmenter::split_labeled_image_(
-    const cv::Mat& input, const cv::Mat& labeled) -> std::vector<cv::Mat> const
+    const cv::Mat& input, const cv::Mat& labeled) const -> std::vector<cv::Mat>
 {
     // Setup an alpha channel
     cv::Mat alpha = cv::Mat::zeros(input.size(), CV_32FC1);
 
     // Find subimage bounding boxes using pixel labels
-    std::map<int32_t, BoundingBox> labelBBs;
+    std::map<std::int32_t, BoundingBox> labelBBs;
     for (int y = 0; y < labeled.rows; y++) {
         for (int x = 0; x < labeled.cols; x++) {
 
             // Get label
-            auto label = labeled.at<int32_t>(y, x);
+            auto label = labeled.at<std::int32_t>(y, x);
 
             // Reserved labels:
             // -1: boundary between objects
@@ -219,13 +224,13 @@ auto DisegniSegmenter::split_labeled_image_(
     std::vector<cv::Mat> subimgs;
     for (const auto& i : labelBBs) {
         // Apply bbox buffer
-        auto minX = std::max(i.second.tl.x - bboxBuffer_, 0);
-        auto minY = std::max(i.second.tl.y - bboxBuffer_, 0);
-        auto maxX = std::min(i.second.br.x + bboxBuffer_, input.cols - 1);
-        auto maxY = std::min(i.second.br.y + bboxBuffer_, input.rows - 1);
+        const auto minX = std::max(i.second.tl.x - bboxBuffer_, 0);
+        const auto minY = std::max(i.second.tl.y - bboxBuffer_, 0);
+        const auto maxX = std::min(i.second.br.x + bboxBuffer_, input.cols - 1);
+        const auto maxY = std::min(i.second.br.y + bboxBuffer_, input.rows - 1);
 
-        auto height = maxY - minY;
-        auto width = maxX - minX;
+        const auto height = maxY - minY;
+        const auto width = maxX - minX;
         cv::Rect roi(minX, minY, width, height);
         cv::Mat subimg = inputAlpha(roi).clone();
         subimgs.push_back(subimg);

@@ -6,7 +6,8 @@ depths and types. Fully supports gray, gray+alpha, RGB, and RGBA images in 8,
 16, and 32 bits-per-channel.
 
 ## Requirements
-* C++14 compiler
+* CMake 3.24+
+* C++17 compiler
 * Boost 1.58+
     - Required: Program Options
     - Optional: Filesystem - This project will automatically check if the 
@@ -19,10 +20,10 @@ depths and types. Fully supports gray, gray+alpha, RGB, and RGBA images in 8,
 * libtiff 4.0.9+
     - **Note**: ITK and OpenCV should be linked against the same libtiff build
     
-### Ubuntu 20.04
+### Ubuntu 24.04
 Install using apt:
 ```shell
-sudo apt-get install cmake libopencv-dev libvtk6-dev libboost-program-options-dev libinsighttoolkit4-dev
+sudo apt install cmake libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
 ```
 
 ### macOS
@@ -34,13 +35,13 @@ brew bundle
 
 ### vc-deps
 Our research group maintains a CMake project called 
-[vc-deps](https://gitlab.com/educelab/vc-deps) for building dependencies that 
+[vc-deps](https://github.com/educelab/vc-deps) for building dependencies that 
 are common across many of our C++ projects. Once it is built, point this 
 project's CMake configuration at the `vc-deps` libraries using the 
 `CMAKE_PREFIX_PATH` flag:
 
 ```shell
-cmake -DCMAKE_PREFIX_PATH=/path/to/vc-deps/deps/ ..
+cmake -S . -B build/ -DCMAKE_PREFIX_PATH=/path/to/vc-deps/deps/
 ```
 
 ## Build and Install
@@ -52,14 +53,10 @@ workflow:
 git clone https://gitlab.com/educelab/registration-toolkit.git
 cd registration-toolkit/
 
-# Make an out-of-source build directory
-mkdir build/ 
-cd build/
-
 # Configure and build
-cmake ..
-make
-make install # optional
+cmake -S . -B build/
+cmake --build build/
+cmake --install build/  # optional
 ```
 
 The CMake project provides a number of flags for configuring the build:

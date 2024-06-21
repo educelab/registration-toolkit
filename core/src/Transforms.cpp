@@ -12,11 +12,11 @@ void rt::WriteTransform(
     const fs::path& path, const Transform::Pointer& transform)
 {
     // Always write a composite transform
-    auto t = CompositeTransform::New();
+    const auto t = CompositeTransform::New();
     t->AddTransform(transform);
     t->FlattenTransformQueue();
 
-    auto writer = itk::TransformFileWriter::New();
+    const auto writer = itk::TransformFileWriter::New();
     writer->SetFileName(path.string());
     writer->SetInput(t);
     writer->Update();
@@ -28,7 +28,7 @@ auto rt::ReadTransform(const fs::path& path) -> Transform::Pointer
     itk::TransformFactoryBase::RegisterDefaultTransforms();
 
     // Read transform
-    auto reader = itk::TransformFileReader::New();
+    const auto reader = itk::TransformFileReader::New();
     reader->SetFileName(path.string());
     reader->Update();
 
