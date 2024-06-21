@@ -52,6 +52,7 @@ target_include_directories(rt_core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${bvh_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${libcore_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(rt_core

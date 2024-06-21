@@ -137,10 +137,6 @@ public:
 private:
     /** Resample the input image into the organized texture */
     void create_texture_();
-    /**
-     * Generate a new UV map relating the input mesh to the organized texture
-     */
-    void create_uv_();
 
     /** Input mesh */
     ITKMesh::Pointer inputMesh_;
@@ -157,15 +153,6 @@ private:
     double sampleRate_{DEFAULT_SAMPLE_RATE};
     /** Length of the predefined sampling dimension */
     std::size_t sampleDim_{800};
-
-    /** Origin position */
-    cv::Vec3d origin_;
-    /** First basis */
-    cv::Vec3d xAxis_;
-    /** Second basis */
-    cv::Vec3d yAxis_;
-    /** Third basis */
-    cv::Vec3d zAxis_;
 
     /** Whether we want the first or last mesh intersection point */
     bool useFirstIntersection_{false};
