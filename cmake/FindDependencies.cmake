@@ -42,6 +42,9 @@ include(Buildsmgl)
 ### bvh ###
 include(Buildbvh)
 
+### libcore ###
+include(Buildlibcore)
+
 ############
 # Optional #
 ############
