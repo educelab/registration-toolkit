@@ -7,24 +7,24 @@
 
 using namespace rt;
 
-static auto RandomUVMap(size_t numUVs, size_t numFaces) -> UVMap
+static auto RandomUVMap(std::size_t numUVs, std::size_t numFaces) -> UVMap
 {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::uniform_real_distribution randReal(
         0.0, std::nextafter(1.0, std::numeric_limits<double>::max()));
-    std::uniform_int_distribution<size_t> randInt(0, numUVs - 1);
+    std::uniform_int_distribution<std::size_t> randInt(0, numUVs - 1);
 
     // UV Map
     UVMap uv;
 
     // Random UV coordinates
-    for (size_t i = 0; i < numUVs; i++) {
+    for (std::size_t i = 0; i < numUVs; i++) {
         uv.addUV({randReal(gen), randReal(gen)});
     }
 
     // Random Faces
-    for (size_t i = 0; i < numFaces; i++) {
+    for (std::size_t i = 0; i < numFaces; i++) {
         auto a = randInt(gen);
         auto b = randInt(gen);
         while (b == a) {
@@ -59,7 +59,8 @@ TEST(UVMapIO, RoundTrip)
     EXPECT_EQ(result.uvs_as_vector(), orig.uvs_as_vector());
 
     // Compare faces
-    // cv::Vec_<size_t> doesn't define equality operator so manually compare
+    // cv::Vec_<std::size_t> doesn't define equality operator so manually
+    // compare
     for (const auto& [idx, resFace] : result.faces_as_map()) {
         auto origFace = orig.getFace(idx);
         EXPECT_EQ(resFace[0], origFace[0]);

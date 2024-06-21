@@ -14,6 +14,15 @@ variables:
     - *build_script
     - *test_script
 
+test:ubuntu:24.04:
+  image: ubuntu:24.04
+  extends: .build_and_test
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+  before_script:
+    - apt-get -y update
+    - apt-get install -y build-essential cmake curl git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
+
 test:ubuntu:22.04:
   image: ubuntu:22.04
   extends: .build_and_test
@@ -25,8 +34,6 @@ test:ubuntu:22.04:
     - curl -OL https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.sh
     - chmod +x cmake-3.28.3-linux-x86_64.sh
     - ./cmake-3.28.3-linux-x86_64.sh --skip-license --prefix=/usr/local --exclude-subdir
-  tags:
-    - docker
 
 test:macos:
   extends: .build_and_test

@@ -2,6 +2,7 @@
 
 /** @file */
 
+#include <cstdint>
 #include <string>
 
 namespace rt
@@ -16,11 +17,11 @@ struct ProjectInfo {
     /** @brief Get the library name and version string */
     static auto NameAndVersion() -> std::string;
     /** @brief Get the library Major version number */
-    static auto VersionMajor() -> uint32_t;
+    static auto VersionMajor() -> std::uint32_t;
     /** @brief Get the library Minor version number */
-    static auto VersionMinor() -> uint32_t;
+    static auto VersionMinor() -> std::uint32_t;
     /** @brief Get the library Patch version number */
-    static auto VersionPatch() -> uint32_t;
+    static auto VersionPatch() -> std::uint32_t;
     /** @brief Get the git repository URL */
     static auto RepositoryURL() -> std::string;
     /** @brief Get the full hash for the current git commit */

@@ -89,7 +89,7 @@ TEST_P(ITKOCVBridge, RoundTrip)
     switch (GetParam()) {
         case CV_8UC1:
             cv::randu(img, 0, 256);
-            TestITKConversion<Image8UC1, uint8_t>(img, dim);
+            TestITKConversion<Image8UC1, std::uint8_t>(img, dim);
             break;
         case CV_8UC3:
             cv::randu(img, cv::Scalar{0, 0, 0}, cv::Scalar{256, 256, 256});
@@ -102,18 +102,18 @@ TEST_P(ITKOCVBridge, RoundTrip)
             break;
         case CV_16UC1:
             cv::randu(img, 0, 65536);
-            TestITKConversion<Image16UC1, uint16_t>(img, dim);
+            TestITKConversion<Image16UC1, std::uint16_t>(img, dim);
             break;
         case CV_16UC3:
             cv::randu(
                 img, cv::Scalar{0, 0, 0}, cv::Scalar{65536, 65536, 65536});
-            TestITKConversion<Image16UC3, cv::Vec<uint16_t, 3>>(img, dim);
+            TestITKConversion<Image16UC3, cv::Vec<std::uint16_t, 3>>(img, dim);
             break;
         case CV_16UC4:
             cv::randu(
                 img, cv::Scalar{0, 0, 0, 0},
                 cv::Scalar{65536, 65536, 65536, 65536});
-            TestITKConversion<Image16UC4, cv::Vec<uint16_t, 4>>(img, dim);
+            TestITKConversion<Image16UC4, cv::Vec<std::uint16_t, 4>>(img, dim);
             break;
         case CV_32FC1:
             cv::randu(img, 0, 1.0);

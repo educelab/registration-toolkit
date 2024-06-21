@@ -23,7 +23,7 @@ auto AffineLandmarkRegistration::compute()
     output_ = Transform::New();
 
     // Initialize transform
-    auto landmarkTransformInit = TransformInitializer::New();
+    const auto landmarkTransformInit = TransformInitializer::New();
     landmarkTransformInit->SetFixedLandmarks(fixedLdmks_);
     landmarkTransformInit->SetMovingLandmarks(movingLdmks_);
     output_->SetIdentity();

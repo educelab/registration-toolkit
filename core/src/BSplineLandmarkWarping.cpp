@@ -18,8 +18,8 @@ auto BSplineLandmarkWarping::compute()
     }
 
     // Convert to 8UC3
-    auto fixed8u = QuantizeImage(fixedImg_, CV_8U);
-    auto fixedImg = CVMatToITKImage<Image8UC3>(fixed8u);
+    const auto fixed8u = QuantizeImage(fixedImg_, CV_8U);
+    const auto fixedImg = CVMatToITKImage<Image8UC3>(fixed8u);
 
     using TransformInitializer =
         itk::LandmarkBasedTransformInitializer<Transform, Image8UC3, Image8UC3>;
@@ -29,7 +29,7 @@ auto BSplineLandmarkWarping::compute()
     output_->SetIdentity();
 
     // Initialize transform
-    auto landmarkTransformInit = TransformInitializer::New();
+    const auto landmarkTransformInit = TransformInitializer::New();
     landmarkTransformInit->SetFixedLandmarks(fixedLdmks_);
     landmarkTransformInit->SetMovingLandmarks(movingLdmks_);
     landmarkTransformInit->SetReferenceImage(fixedImg);

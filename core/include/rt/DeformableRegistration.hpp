@@ -2,6 +2,9 @@
 
 /** @file */
 
+#include <cstddef>
+#include <cstdint>
+
 #include <itkBSplineTransform.h>
 #include <opencv2/core.hpp>
 
@@ -24,13 +27,13 @@ class DeformableRegistration
 {
 public:
     /** Default max number of optimization iterations  */
-    static constexpr size_t DEFAULT_ITERATIONS = 100;
+    static constexpr std::size_t DEFAULT_ITERATIONS = 100;
     /** Default relaxation factor */
     static constexpr double DEFAULT_RELAXATION = 0.85;
     /** Default gradient magnitude tolerance */
     static constexpr double DEFAULT_GRAD_MAG_TOLERANCE = 0.0001;
     /** Default mesh fill size */
-    static constexpr uint32_t DEFAULT_MESH_FILL_SIZE = 12;
+    static constexpr std::uint32_t DEFAULT_MESH_FILL_SIZE = 12;
     /** BSpline transform type */
     using Transform = itk::BSplineTransform<double, 2, 3>;
 
@@ -44,9 +47,9 @@ public:
      *
      * Optimizer stops after this many iterations.
      */
-    void setNumberOfIterations(size_t i);
+    void setNumberOfIterations(std::size_t i);
     /** @brief Set the Mesh Fill Size */
-    void setMeshFillSize(uint32_t i);
+    void setMeshFillSize(std::uint32_t i);
     /** @brief Set the Gradient Magnitude Tolerance */
     void setGradientMagnitudeTolerance(double i);
     /** @brief Report error metrics to the console while processing */
@@ -55,7 +58,7 @@ public:
 
     /**@{*/
     /** @brief Get the Mesh Fill Size */
-    [[nodiscard]] auto getMeshFillSize() const -> uint32_t;
+    [[nodiscard]] auto getMeshFillSize() const -> std::uint32_t;
     /** @brief Get the Gradient Magnitude Tolerance */
     [[nodiscard]] auto getGradientMagnitudeTolerance() const -> double;
     /** @copydoc setReportMetrics(bool) */
@@ -82,9 +85,9 @@ private:
     Transform::Pointer output_;
 
     /** Optimizer iteration limit */
-    size_t iterations_{DEFAULT_ITERATIONS};
+    std::size_t iterations_{DEFAULT_ITERATIONS};
     /** Mesh fill size */
-    uint32_t meshFillSize_{DEFAULT_MESH_FILL_SIZE};
+    std::uint32_t meshFillSize_{DEFAULT_MESH_FILL_SIZE};
     /** Optimizer step length is reduced by this factor each iteration */
     double relaxationFactor_{DEFAULT_RELAXATION};
     /** Stop condition if change in metric is less than this value */

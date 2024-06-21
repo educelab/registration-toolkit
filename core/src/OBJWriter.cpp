@@ -213,7 +213,7 @@ auto OBJWriter::write_texture_coordinates_() -> int
     std::cerr << "Writing texture coordinates...\n";
 
     // Ensure coordinates are relative to bottom left
-    auto startingOrigin = uvMap_.origin();
+    const auto startingOrigin = uvMap_.origin();
     uvMap_.setOrigin(UVMap::Origin::BottomLeft);
 
     // Write mtl path, relative to OBJ
@@ -250,7 +250,8 @@ auto OBJWriter::write_faces_() -> int
     for (auto cell = mesh_->GetCells()->Begin();
          cell != mesh_->GetCells()->End(); ++cell) {
         // Get the UV indices for this face
-        auto hasUVFace = not uvMap_.empty() and uvMap_.hasFace(cell.Index());
+        const auto hasUVFace =
+            not uvMap_.empty() and uvMap_.hasFace(cell.Index());
         UVMap::Face uvFace;
         if (hasUVFace) {
             uvFace = uvMap_.getFace(cell.Index());
@@ -272,7 +273,7 @@ auto OBJWriter::write_faces_() -> int
 
         // Iterate over the points of this face
         int pIdx{0};
-        for (auto* point = cell.Value()->PointIdsBegin();
+        for (const auto* point = cell.Value()->PointIdsBegin();
              point != cell.Value()->PointIdsEnd(); ++point) {
 
             auto pId = static_cast<std::size_t>(*point);

@@ -1,5 +1,6 @@
 #include "rt/io/OBJReader.hpp"
 
+#include <cstddef>
 #include <regex>
 #include <string>
 
@@ -15,7 +16,7 @@ namespace fs = rt::filesystem;
 
 // Constant for validating face values
 constexpr static std::size_t NOT_PRESENT = 0;
-constexpr static size_t VALID_FACE_SIZE = 3;
+constexpr static std::size_t VALID_FACE_SIZE = 3;
 
 // Validation enumeration to ensure proper parsing vertices
 enum class RefType {
@@ -145,8 +146,8 @@ void OBJReader::parse_tcoord_(const std::vector<std::string>& strs)
 void OBJReader::parse_face_(const std::vector<std::string>& strs)
 {
     OBJReader::Face f;
-    std::vector<std::string> sub(std::begin(strs) + 1, std::end(strs));
-    auto faceType = ClassifyVertexRef(sub[0]);
+    const std::vector<std::string> sub(std::begin(strs) + 1, std::end(strs));
+    const auto faceType = ClassifyVertexRef(sub[0]);
 
     for (const auto& s : sub) {
         auto vinfo = split(s, '/');
@@ -214,7 +215,7 @@ void OBJReader::parse_mtllib_(const std::vector<std::string>& strs)
 auto ClassifyVertexRef(const std::string& ref) -> RefType
 {
     const char delimiter = '/';
-    auto slashCount = std::count(ref.begin(), ref.end(), delimiter);
+    const auto slashCount = std::count(ref.begin(), ref.end(), delimiter);
 
     // Invalid slash positions
     if (ref.front() == delimiter || ref.back() == delimiter) {
@@ -234,8 +235,8 @@ auto ClassifyVertexRef(const std::string& ref) -> RefType
     // Two slashes
     else if (slashCount == 2) {
         // Get the two slash positions
-        auto pos0 = ref.find(delimiter, 0);
-        auto pos1 = ref.find(delimiter, pos0 + 1);
+        const auto pos0 = ref.find(delimiter, 0);
+        const auto pos1 = ref.find(delimiter, pos0 + 1);
 
         // If positions differ by 1, then v//vn
         // else v/vt/vn
@@ -288,7 +289,7 @@ void OBJReader::build_mesh_()
             if (vinfo[0] - 1 >= vertices_.size()) {
                 throw IOException("Out-of-range vertex reference");
             }
-            auto vertexID = vinfo[0] - 1;
+            const auto vertexID = vinfo[0] - 1;
             cell->SetPointId(idInCell, vertexID);
 
             if (vinfo[1] != NOT_PRESENT) {

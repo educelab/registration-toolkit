@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <exception>
 #include <typeinfo>
 
@@ -99,30 +100,30 @@ auto ITKImageToCVMat(const itk::SmartPointer<ITKImageType>& img) -> cv::Mat
     auto region = img->GetLargestPossibleRegion();
     auto size = region.GetSize();
     auto cns = itk::NumericTraits<PixelType>::MeasurementVectorType::Dimension;
-    auto w = static_cast<int>(size[0]);
-    auto h = static_cast<int>(size[1]);
+    const auto w = static_cast<int>(size[0]);
+    const auto h = static_cast<int>(size[1]);
 
     // Get the pixel type depth
     int type{-1};
-    if (typeid(ValueType) == typeid(uint8_t)) {
+    if (typeid(ValueType) == typeid(std::uint8_t)) {
         type = CV_8UC(cns);
-    } else if (typeid(ValueType) == typeid(int8_t)) {
+    } else if (typeid(ValueType) == typeid(std::int8_t)) {
         type = CV_8SC(cns);
-    } else if (typeid(ValueType) == typeid(uint16_t)) {
+    } else if (typeid(ValueType) == typeid(std::uint16_t)) {
         type = CV_16UC(cns);
-    } else if (typeid(ValueType) == typeid(int16_t)) {
+    } else if (typeid(ValueType) == typeid(std::int16_t)) {
         type = CV_16SC(cns);
     } else if (typeid(ValueType) == typeid(float)) {
         type = CV_32FC(cns);
-    } else if (typeid(ValueType) == typeid(int32_t)) {
+    } else if (typeid(ValueType) == typeid(std::int32_t)) {
         type = CV_32SC(cns);
     } else if (typeid(ValueType) == typeid(double)) {
         type = CV_64FC(cns);
     } else {
         throw std::invalid_argument("Unrecognized pixel type");
     }
-    auto tmp = cv::Mat(
-        h, w, type, reinterpret_cast<uint8_t*>(img->GetBufferPointer()));
+    const auto tmp = cv::Mat(
+        h, w, type, reinterpret_cast<std::uint8_t*>(img->GetBufferPointer()));
 
     // RGB -> BGR if needed
     cv::Mat out;
@@ -150,15 +151,15 @@ auto CVMatToITKImage(const cv::Mat& img) -> typename ITKImageType::Pointer
 
     switch (tmp.depth()) {
         case CV_8U:
-            return detail::CVMatToITKImage<ITKImageType, uint8_t>(tmp);
+            return detail::CVMatToITKImage<ITKImageType, std::uint8_t>(tmp);
         case CV_8S:
-            return detail::CVMatToITKImage<ITKImageType, int8_t>(tmp);
+            return detail::CVMatToITKImage<ITKImageType, std::int8_t>(tmp);
         case CV_16U:
-            return detail::CVMatToITKImage<ITKImageType, uint16_t>(tmp);
+            return detail::CVMatToITKImage<ITKImageType, std::uint16_t>(tmp);
         case CV_16S:
-            return detail::CVMatToITKImage<ITKImageType, int16_t>(tmp);
+            return detail::CVMatToITKImage<ITKImageType, std::int16_t>(tmp);
         case CV_32S:
-            return detail::CVMatToITKImage<ITKImageType, int32_t>(tmp);
+            return detail::CVMatToITKImage<ITKImageType, std::int32_t>(tmp);
         case CV_32F:
             return detail::CVMatToITKImage<ITKImageType, float>(tmp);
         case CV_64F:

@@ -3,6 +3,7 @@
 /** @file */
 
 #include <algorithm>
+#include <cstddef>
 #include <locale>
 #include <string>
 #include <type_traits>
@@ -187,7 +188,7 @@ static inline auto split(const std::string& s, const Ds&... ds)
     // Split string
     std::vector<std::string> tokens;
     std::string::size_type begin{0};
-    for (size_t it = 0; it < delimPos.size(); it++) {
+    for (std::size_t it = 0; it < delimPos.size(); it++) {
         auto end = delimPos[it];
         auto t = s.substr(begin, end - begin);
         if (not t.empty()) {

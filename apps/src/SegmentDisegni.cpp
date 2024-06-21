@@ -152,10 +152,11 @@ int main(int argc, char* argv[])
 
     // Save the subimages
     std::cout << "Saving disegni images..." << std::endl;
-    size_t index = 0;
+    std::size_t index = 0;
     for (const auto& r : results) {
         std::stringstream ss;
-        ss << prefix << std::setw(padding) << std::setfill('0') << index << ext;
+        ss << prefix << std::setw(static_cast<int>(padding))
+           << std::setfill('0') << index << ext;
         rt::WriteImage((outDir / ss.str()), r);
         index++;
     }
@@ -166,10 +167,10 @@ int main(int argc, char* argv[])
 auto ParsePointString(const std::string& s) -> cv::Point
 {
     // Parse the string into doubles
-    std::regex delim(",");
+    const std::regex delim(",");
     std::sregex_token_iterator it(s.begin(), s.end(), delim, -1);
     std::vector<int> components;
-    for (; it != std::sregex_token_iterator(); it++) {
+    for (; it != std::sregex_token_iterator(); ++it) {
         components.emplace_back(std::stoi(*it));
     }
 

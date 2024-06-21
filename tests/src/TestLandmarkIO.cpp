@@ -8,7 +8,7 @@
 
 using namespace rt;
 
-static auto RandomLandmarks(size_t num) -> LandmarkContainer
+static auto RandomLandmarks(std::size_t num) -> LandmarkContainer
 {
     static std::random_device rd;
     static std::mt19937 gen(rd());
@@ -17,7 +17,7 @@ static auto RandomLandmarks(size_t num) -> LandmarkContainer
 
     // Random landmark coordinates
     LandmarkContainer lc;
-    for (size_t i = 0; i < num; i++) {
+    for (std::size_t i = 0; i < num; i++) {
         Landmark l;
         l[0] = randReal(gen);
         l[1] = randReal(gen);
