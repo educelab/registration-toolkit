@@ -2,6 +2,7 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
+#include <educelab/core/utils/String.hpp>
 #include <opencv2/core/utils/logger.hpp>
 #include <smgl/Graphviz.hpp>
 #include <smgl/smgl.hpp>
@@ -9,7 +10,6 @@
 #include "rt/Version.hpp"
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
-#include "rt/util/String.hpp"
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
@@ -17,6 +17,7 @@ namespace cvl = cv::utils::logging;
 
 using namespace rt;
 using namespace rt::graph;
+using namespace educelab;
 
 using SamplingOrigin = ReorderUnorganizedTexture::SamplingOrigin;
 std::unordered_map<std::string, SamplingOrigin> StrToOrigin{

@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <cstring>
 
+#include <educelab/core/utils/String.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include "rt/Version.hpp"
-#include "rt/util/String.hpp"
 
 // Wrapping in a namespace to avoid define collisions
 namespace lt
@@ -16,6 +16,7 @@ namespace lt
 }
 
 using namespace rt;
+using namespace educelab;
 namespace fs = rt::filesystem;
 
 // Return a CV Mat type using TIF type (signed, unsigned, float),

@@ -14,6 +14,10 @@ target_link_libraries(rt_register
     Boost::program_options
     smgl::smgl
 )
+target_include_directories(rt_register
+    PUBLIC
+        $<BUILD_INTERFACE:${libcore_SOURCE_DIR}/include>
+)
 
 add_executable(rt_reorder_texture src/ReorderTexture.cpp)
 target_link_libraries(rt_reorder_texture
@@ -21,6 +25,10 @@ target_link_libraries(rt_reorder_texture
     rt::graph
     Boost::program_options
     smgl::smgl
+)
+target_include_directories(rt_reorder_texture
+    PUBLIC
+        $<BUILD_INTERFACE:${libcore_SOURCE_DIR}/include>
 )
 
 add_executable(rt_raw_tiff_converter src/RawTIFFConverter.cpp)
