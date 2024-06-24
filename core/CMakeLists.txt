@@ -76,6 +76,9 @@ target_link_libraries(rt_core
 if(TARGET ITKSmoothing)
     target_link_libraries(rt_core PRIVATE ITKSmoothing)
 endif()
+if(EDUCE_CORE_NEED_TO_NUMERIC_FP)
+    target_compile_definitions(rt_core PRIVATE EDUCE_CORE_NEED_TO_NUMERIC_FP)
+endif()
 target_compile_features(rt_core PUBLIC cxx_std_17)
 set_target_properties(rt_core PROPERTIES
     VERSION "${PROJECT_VERSION}"

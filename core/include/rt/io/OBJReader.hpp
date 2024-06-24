@@ -2,7 +2,9 @@
 
 /** @file */
 
-#include <fstream>
+#include <array>
+#include <optional>
+#include <vector>
 
 #include <opencv2/core.hpp>
 
@@ -50,7 +52,7 @@ public:
      * If no texture image was read from MTL file or if the file does not
      * exist, throws a rt::IOException.
      */
-    auto getTextureMat() -> cv::Mat;
+    auto getTextureMat() const -> cv::Mat;
 
     /**
      * @brief Return the path to the texture image
@@ -69,7 +71,7 @@ private:
      *
      * VertexRefs { v, vt, vn }
      */
-    using VertexRefs = cv::Vec<std::size_t, 3>;
+    using VertexRefs = std::array<std::optional<std::size_t>, 3>;
 
     /** A list of at least three OBJReader::VertexRefs comprise a face */
     using Face = std::vector<VertexRefs>;
@@ -79,17 +81,6 @@ private:
 
     /** Parse the mesh */
     void parse_();
-    /** Handle parsed vertex lines */
-    void parse_vertex_(const std::vector<std::string>& strs);
-    /** Handle parsed vertex normal lines */
-    void parse_normal_(const std::vector<std::string>& strs);
-    /** Handle parsed vertex UV coordinate lines */
-    void parse_tcoord_(const std::vector<std::string>& strs);
-    /** Handle parsed face lines */
-    void parse_face_(const std::vector<std::string>& strs);
-    /** Handle parsed mtllib lines */
-    void parse_mtllib_(const std::vector<std::string>& strs);
-    /** Classify a OBJReader::VertexRefs as an OBJReader::RefType */
 
     /** Construct a mesh from the parsed information */
     void build_mesh_();
@@ -110,7 +101,7 @@ private:
     /** List of parsed vertex UV coordinates */
     std::vector<cv::Vec2d> uvs_;
     /** List of parsed faces */
-    std::vector<OBJReader::Face> faces_;
+    std::vector<Face> faces_;
 };
 
 }  // namespace rt

@@ -4,10 +4,13 @@
 #include <fstream>
 #include <regex>
 #include <sstream>
+#include <string_view>
+
+#include <educelab/core/utils/String.hpp>
 
 #include "rt/types/Exceptions.hpp"
-#include "rt/util/String.hpp"
 
+using namespace educelab;
 namespace fs = rt::filesystem;
 
 void rt::WriteUVMap(const fs::path& path, const UVMap& uvMap)
@@ -68,69 +71,69 @@ auto rt::ReadUVMap(const fs::path& path) -> rt::UVMap
 
     // Regexes
     std::regex comments{"^#"};
-    std::regex fileType{"^filetype"};
-    std::regex version{"^version"};
-    std::regex type{"^type"};
-    std::regex size{"^size"};
-    std::regex width{"^width"};
-    std::regex height{"^height"};
-    std::regex origin{"^origin"};
-    std::regex faces{"^faces"};
+    constexpr std::string_view fileType{"filetype"};
+    constexpr std::string_view version{"version"};
+    constexpr std::string_view type{"type"};
+    constexpr std::string_view size{"size"};
+    constexpr std::string_view width{"width"};
+    constexpr std::string_view height{"height"};
+    constexpr std::string_view origin{"origin"};
+    constexpr std::string_view faces{"faces"};
     std::regex headerTerminator{"^<>$"};
 
     Header h;
     std::string line;
     while (std::getline(ifs, line)) {
-        trim(line);
+        line = trim(line);
         auto strs = split(line, ':');
-        std::for_each(
-            std::begin(strs), std::end(strs), [](auto& t) { trim(t); });
+        std::transform(
+            std::begin(strs), std::end(strs), std::begin(strs), &trim);
 
         // Comments: look like:
         // # This is a comment
         //    # This is another comment
-        if (std::regex_match(strs[0], comments)) {
+        if (std::regex_match(std::string(strs[0]), comments)) {
             continue;
         }
 
         // File type
-        else if (std::regex_match(strs[0], fileType)) {
+        else if (strs[0] == fileType) {
             h.fileType = strs[1];
         }
 
         // Version
-        else if (std::regex_match(strs[0], version)) {
-            h.version = std::stoi(strs[1]);
+        else if (strs[0] == version) {
+            h.version = to_numeric<int>(strs[1]);
         }
 
         // Type
-        else if (std::regex_match(strs[0], type)) {
+        else if (strs[0] == type) {
             h.type = strs[1];
         }
 
         // Size
-        else if (std::regex_match(strs[0], size)) {
-            h.size = std::stoul(strs[1]);
+        else if (strs[0] == size) {
+            h.size = to_numeric<std::size_t>(strs[1]);
         }
 
         // Width
-        else if (std::regex_match(strs[0], width)) {
-            h.width = std::stod(strs[1]);
+        else if (strs[0] == width) {
+            h.width = to_numeric<double>(strs[1]);
         }
 
         // Height
-        else if (std::regex_match(strs[0], height)) {
-            h.height = std::stod(strs[1]);
+        else if (strs[0] == height) {
+            h.height = to_numeric<double>(strs[1]);
         }
 
         // Origin
-        else if (std::regex_match(strs[0], origin)) {
-            h.origin = std::stoi(strs[1]);
+        else if (strs[0] == origin) {
+            h.origin = to_numeric<int>(strs[1]);
         }
 
         // Faces
-        else if (std::regex_match(strs[0], faces)) {
-            h.faces = std::stoul(strs[1]);
+        else if (strs[0] == faces) {
+            h.faces = to_numeric<std::size_t>(strs[1]);
         }
 
         // End of the header

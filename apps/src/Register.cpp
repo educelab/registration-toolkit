@@ -2,8 +2,8 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
+#include <educelab/core/utils/String.hpp>
 #include <opencv2/core/utils/logger.hpp>
-#include <rt/util/String.hpp>
 #include <smgl/Graph.hpp>
 #include <smgl/Graphviz.hpp>
 
@@ -14,6 +14,7 @@
 
 using namespace rt;
 using namespace rt::graph;
+using namespace educelab;
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
@@ -176,7 +177,7 @@ auto main(int argc, char* argv[]) -> int
             ldmNode = genLdm;
 
             auto enhanceStr = parsed["landmark-enhancement"].as<std::string>();
-            rt::to_lower(enhanceStr);
+            to_lower(enhanceStr);
             LandmarkDetector::EnhancementMode mode{
                 LandmarkDetector::OriginalWithCLAHE};
             if (enhanceStr == "none") {

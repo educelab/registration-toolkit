@@ -5,12 +5,15 @@
 #include <iostream>
 #include <regex>
 #include <sstream>
+#include <string_view>
+
+#include <educelab/core/utils/String.hpp>
 
 #include "rt/types/Exceptions.hpp"
-#include "rt/util/String.hpp"
 
 using namespace rt;
 namespace fs = rt::filesystem;
+using namespace educelab;
 
 void LandmarkWriter::setPath(const fs::path& p) { path_ = p; }
 
@@ -79,19 +82,18 @@ void LandmarkReader::read()
         }
 
         // Parse the line
-        trim(line);
+        line = trim(line);
         auto strs = split(line);
-        std::for_each(
-            std::begin(strs), std::end(strs), [](std::string& t) { trim(t); });
+        std::transform(strs.begin(), strs.end(), strs.begin(), &trim);
 
         if (strs.size() != 4) {
             continue;
         }
 
-        fixedLdm[0] = std::stod(strs[0]);
-        fixedLdm[1] = std::stod(strs[1]);
-        movingLdm[0] = std::stod(strs[2]);
-        movingLdm[1] = std::stod(strs[3]);
+        fixedLdm[0] = to_numeric<double>(strs[0]);
+        fixedLdm[1] = to_numeric<double>(strs[1]);
+        movingLdm[0] = to_numeric<double>(strs[2]);
+        movingLdm[1] = to_numeric<double>(strs[3]);
 
         fixed_.push_back(fixedLdm);
         moving_.push_back(movingLdm);
@@ -162,11 +164,11 @@ auto rt::ReadLandmarkContainer(const fs::path& path) -> LandmarkContainer
 
     // Parse header
     Header h;
-    const std::regex filetype{"^filetype"};
-    const std::regex size{"^size"};
-    const std::regex dim{"^dim"};
-    const std::regex type{"^type"};
-    const std::regex terminator{"^<>$"};
+    constexpr std::string_view filetype{"filetype"};
+    constexpr std::string_view size{"size"};
+    constexpr std::string_view dim{"dim"};
+    constexpr std::string_view type{"type"};
+    constexpr std::string_view terminator{"<>"};
 
     std::string line;
     while (std::getline(file, line)) {
@@ -177,34 +179,33 @@ auto rt::ReadLandmarkContainer(const fs::path& path) -> LandmarkContainer
         }
 
         // Tokenize the line
-        trim(line);
+        line = trim(line);
         auto strs = split(line, ':');
-        std::for_each(
-            std::begin(strs), std::end(strs), [](auto& t) { trim(t); });
+        std::transform(strs.begin(), strs.end(), strs.begin(), &trim);
 
         // Filetype
-        if (std::regex_match(strs[0], filetype)) {
+        if (strs[0] == filetype) {
             h.filetype = strs[1];
         }
         // Size
-        else if (std::regex_match(strs[0], size)) {
-            h.size = std::stoull(strs[1]);
+        else if (strs[0] == size) {
+            h.size = to_numeric<std::size_t>(strs[1]);
         }
         // Dimensions
-        else if (std::regex_match(strs[0], dim)) {
-            h.dim = std::stoull(strs[1]);
+        else if (strs[0] == dim) {
+            h.dim = to_numeric<std::size_t>(strs[1]);
         }
         // Type
-        else if (std::regex_match(strs[0], type)) {
+        else if (strs[0] == type) {
             h.type = strs[1];
         }
         // End of the header
-        else if (std::regex_match(line, terminator)) {
+        else if (line == terminator) {
             break;
         }
         // Ignore everything else
         else {
-            continue;
+            // continue
         }
     }
 
