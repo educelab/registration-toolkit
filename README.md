@@ -104,9 +104,8 @@ continuous chart). Use `rt_reorder_texture` to convert a multi-chart mesh to a
 single chart one.
 
 ### Utilities:
-* `rt_apply_transform`: Apply a Transform produced by `rt_register2d` or 
-  `rt_register3d` to an image. Useful for duplicating exact registration 
-  results.
+* `rt_apply_transform`: Apply a Transform produced by `rt_register` to an 
+  image. Useful for duplicating exact registration results.
 * `rt_generate_landmarks`: Automatically detect and generate landmarks between 
   two images and save as a [Landmarks file](#Landmarks-files).
 * `rt_swap_landmarks`: Swap the order (i.e. fixed <-> moving) of an existing 
