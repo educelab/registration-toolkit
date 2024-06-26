@@ -27,10 +27,11 @@ From: ubuntu:22.04
     wget
 
   # Install CMake
-  curl -O -L https://github.com/Kitware/CMake/releases/download/v3.29.5/cmake-3.29.5-linux-x86_64.sh
-  chmod +x cmake-3.29.5-linux-x86_64.sh
-  ./cmake-3.29.5-linux-x86_64.sh --prefix=/usr/local/ --skip-license
-  rm cmake-3.29.5-linux-x86_64.sh
+  CMAKE_VER="3.29.5"
+  curl -O -L https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-${CMAKE_VER}-linux-x86_64.sh
+  chmod +x cmake-${CMAKE_VER}-linux-x86_64.sh
+  ./cmake-${CMAKE_VER}-linux-x86_64.sh --prefix=/usr/local/ --skip-license
+  rm cmake-${CMAKE_VER}-linux-x86_64.sh
 
   # Update ImageMagick's memory limits
   sed -i -E 's/name="memory" value=".+"/name="memory" value="4GiB"/g' /etc/ImageMagick-6/policy.xml
