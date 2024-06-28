@@ -42,27 +42,40 @@ public:
     void setFixedImage(const cv::Mat& i);
     /** @brief Set the moving (transformed) image for registration */
     void setMovingImage(const cv::Mat& i);
+
     /**
-     * @brief Set optimizer iteration limit
+     * @brief Optimizer iteration limit
      *
      * Optimizer stops after this many iterations.
      */
     void setNumberOfIterations(std::size_t i);
+    /** @copydoc setNumberOfIterations(std::size_t) */
+    [[nodiscard]] auto getNumberOfIterations() const -> std::size_t;
+
     /** @brief Set the Mesh Fill Size */
     void setMeshFillSize(std::uint32_t i);
-    /** @brief Set the Gradient Magnitude Tolerance */
-    void setGradientMagnitudeTolerance(double i);
-    /** @brief Report error metrics to the console while processing */
-    void setReportMetrics(bool i);
-    /**@}*/
-
-    /**@{*/
     /** @brief Get the Mesh Fill Size */
     [[nodiscard]] auto getMeshFillSize() const -> std::uint32_t;
+
+    /** @brief Set the Gradient Magnitude Tolerance */
+    void setGradientMagnitudeTolerance(double i);
     /** @brief Get the Gradient Magnitude Tolerance */
     [[nodiscard]] auto getGradientMagnitudeTolerance() const -> double;
+
+    /** @brief Report error metrics to the console while processing */
+    void setReportMetrics(bool i);
     /** @copydoc setReportMetrics(bool) */
     [[nodiscard]] auto getReportMetrics() const -> bool;
+
+    /**
+     * @brief Capture intermediate transforms during iteration
+     *
+     * If enabled, intermediate transforms can be retrieved with
+     * getIntermediates().
+     */
+    void setCaptureIntermediates(bool i);
+    /** @copydoc setCaptureIntermediates(bool) */
+    [[nodiscard]] auto getCaptureIntermediates() const -> bool;
     /**@}*/
 
     /**@{*/
@@ -73,6 +86,14 @@ public:
     /**@{*/
     /** @brief Return the computed transform */
     auto getTransform() -> Transform::Pointer;
+
+    /**
+     * @brief Return the intermediate transforms
+     *
+     * @see setCaptureIntermediates(bool)
+     */
+    [[nodiscard]] auto getIntermediates() const
+        -> std::vector<Transform::Pointer>;
     /**@}*/
 
 private:
@@ -94,5 +115,9 @@ private:
     double gradMagTol_{DEFAULT_GRAD_MAG_TOLERANCE};
     /** Report error metrics during processing */
     bool reportMetrics_{false};
+    /** Capture intermediate transforms */
+    bool captureIntermediates_{false};
+    /** List of intermediate transforms */
+    std::vector<Transform::Pointer> intermediates_;
 };
 }  // namespace rt

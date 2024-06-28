@@ -13,7 +13,10 @@ static auto RegisterNodesImpl() -> bool
 
     // clang-format off
     // ImageIO
-    registered &= smgl::RegisterNode<ImageReadNode, ImageWriteNode>();
+    registered &= smgl::RegisterNode<
+        ReadImageNode,
+        WriteImageNode,
+        WriteImageSeriesNode>();
 
     // ImageOps
     registered &= smgl::RegisterNode<ColorConvertNode>();
@@ -30,6 +33,7 @@ static auto RegisterNodesImpl() -> bool
     // Transforms
     registered &= smgl::RegisterNode<
         ImageResampleNode,
+        TransformSeriesResampleNode,
         TransformLandmarksNode,
         WriteTransformNode,
         TransformUVMapNode>();

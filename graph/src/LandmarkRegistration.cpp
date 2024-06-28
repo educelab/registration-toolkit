@@ -42,7 +42,7 @@ rtg::LandmarkDetectorNode::LandmarkDetectorNode() : Node{true}
 }
 
 smgl::Metadata rtg::LandmarkDetectorNode::serialize_(
-    bool useCache, const fs::path& cacheDir)
+    const bool useCache, const fs::path& cacheDir)
 {
     smgl::Metadata m{
         {"matchRatio", detector_.matchRatio()},
@@ -101,7 +101,7 @@ rtg::AffineLandmarkRegistrationNode::AffineLandmarkRegistrationNode()
 }
 
 auto rtg::AffineLandmarkRegistrationNode::serialize_(
-    bool useCache, const fs::path& cacheDir) -> smgl::Metadata
+    const bool useCache, const fs::path& cacheDir) -> smgl::Metadata
 {
     smgl::Metadata m;
     m["reportMetrics"] = reg_.getReportMetrics();
@@ -118,7 +118,7 @@ void rtg::AffineLandmarkRegistrationNode::deserialize_(
 {
     reg_.setReportMetrics(meta["reportMetrics"].get<bool>());
     if (meta.contains("transform")) {
-        auto file = meta["transform"].get<std::string>();
+        const auto file = meta["transform"].get<std::string>();
         tfm_ = ReadTransform(cacheDir / file);
     }
 }
@@ -140,7 +140,7 @@ rtg::BSplineLandmarkWarpingNode::BSplineLandmarkWarpingNode() : Node{true}
 }
 
 smgl::Metadata rtg::BSplineLandmarkWarpingNode::serialize_(
-    bool useCache, const fs::path& cacheDir)
+    const bool useCache, const fs::path& cacheDir)
 {
     smgl::Metadata m;
     if (useCache and tfm_) {
@@ -155,7 +155,7 @@ void rtg::BSplineLandmarkWarpingNode::deserialize_(
     const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     if (meta.contains("transform")) {
-        auto file = meta["transform"].get<std::string>();
+        const auto file = meta["transform"].get<std::string>();
         tfm_ = ReadTransform(cacheDir / file);
     }
 }

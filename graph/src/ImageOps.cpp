@@ -20,8 +20,8 @@ rtg::ColorConvertNode::ColorConvertNode()
     };
 }
 
-auto rtg::ColorConvertNode::serialize_(bool useCache, const fs::path& cacheDir)
-    -> smgl::Metadata
+auto rtg::ColorConvertNode::serialize_(
+    const bool useCache, const fs::path& cacheDir) -> smgl::Metadata
 {
     smgl::Metadata m{{"channels", cns_}};
     if (useCache and not output_.empty()) {
@@ -36,7 +36,7 @@ void rtg::ColorConvertNode::deserialize_(
 {
     cns_ = meta["channels"].get<std::size_t>();
     if (meta.contains("converted")) {
-        auto file = meta["converted"].get<std::string>();
+        const auto file = meta["converted"].get<std::string>();
         output_ = ReadImage(cacheDir / file);
     }
 }
