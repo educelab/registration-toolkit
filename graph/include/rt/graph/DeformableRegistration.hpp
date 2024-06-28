@@ -37,21 +37,25 @@ public:
     smgl::InputPort<int> iterations;
     /** @copydoc DeformableRegistration::setReportMetrics(bool) */
     smgl::InputPort<bool> reportMetrics;
+    /** @copydoc DeformableRegistration::setCaptureIntermediates(bool) */
+    smgl::InputPort<bool> captureIntermediates;
     /**@}*/
 
     /** @name Output Ports */
     /**@{*/
     /** @brief Final transform port */
     smgl::OutputPort<Transform::Pointer> transform;
+    /** @copydoc DeformableRegistration::getIntermediates() */
+    smgl::OutputPort<std::vector<Transform::Pointer>> intermediates;
     /**@}*/
 
 private:
     /** Registration method */
     DeformableRegistration reg_;
-    /** Iterations */
-    int iters_{DeformableRegistration::DEFAULT_ITERATIONS};
     /** Final transform */
     Transform::Pointer tfm_;
+    /** Intermediate transforms */
+    std::vector<Transform::Pointer> intermediates_;
     /** Graph serialize */
     auto serialize_(bool useCache, const filesystem::path& cacheDir)
         -> smgl::Metadata override;

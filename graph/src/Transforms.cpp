@@ -1,10 +1,15 @@
 #include "rt/graph/Transforms.hpp"
 
+#include <educelab/core/utils/Iteration.hpp>
+#include <educelab/core/utils/String.hpp>
+
 #include "rt/ImageTransformResampler.hpp"
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
 #include "rt/io/UVMapIO.hpp"
 #include "rt/util/ImageConversion.hpp"
+
+using namespace educelab;
 
 namespace rtg = rt::graph;
 namespace fs = rt::filesystem;
@@ -16,7 +21,7 @@ rtg::CompositeTransformNode::CompositeTransformNode() : Node{true}
     registerOutputPort("result", result);
 
     compute = [=]() {
-        auto tfm = CompositeTransform::New();
+        const auto tfm = CompositeTransform::New();
         if (first_) {
             tfm->AddTransform(first_);
         }
@@ -29,7 +34,7 @@ rtg::CompositeTransformNode::CompositeTransformNode() : Node{true}
 }
 
 smgl::Metadata rtg::CompositeTransformNode::serialize_(
-    bool useCache, const fs::path& cacheDir)
+    const bool useCache, const fs::path& cacheDir)
 {
     smgl::Metadata m;
     if (useCache and result_) {
@@ -43,7 +48,7 @@ void rtg::CompositeTransformNode::deserialize_(
     const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     if (meta.contains("transform")) {
-        auto file = meta["transform"].get<std::string>();
+        const auto file = meta["transform"].get<std::string>();
         result_ = ReadTransform(cacheDir / file);
     }
 }
@@ -77,7 +82,7 @@ rtg::TransformLandmarksNode::TransformLandmarksNode() : Node{true}
 
     compute = [this]() {
         ldmOut_.clear();
-        auto i = tfm_->GetInverseTransform();
+        const auto i = tfm_->GetInverseTransform();
         for (const auto& p : ldmIn_) {
             ldmOut_.emplace_back(i->TransformPoint(p));
         }
@@ -85,7 +90,7 @@ rtg::TransformLandmarksNode::TransformLandmarksNode() : Node{true}
 }
 
 smgl::Metadata rtg::TransformLandmarksNode::serialize_(
-    bool useCache, const fs::path& cacheDir)
+    const bool useCache, const fs::path& cacheDir)
 {
     smgl::Metadata m;
     if (useCache) {
@@ -99,7 +104,7 @@ void rtg::TransformLandmarksNode::deserialize_(
     const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     if (meta.contains("landmarks")) {
-        auto file = meta["landmarks"].get<std::string>();
+        const auto file = meta["landmarks"].get<std::string>();
         ldmOut_ = ReadLandmarkContainer(cacheDir / file);
     }
 }
@@ -119,8 +124,12 @@ rtg::TransformUVMapNode::TransformUVMapNode() : Node{true}
         uvOut_.ratio(fixed_.cols, fixed_.rows);
         uvOut_.setOrigin(uvIn_.origin());
 
-        cv::Vec2d fixedSize{fixed_.cols - 1, fixed_.rows - 1};
-        cv::Vec2d movingSize{moving_.cols - 1, moving_.rows - 1};
+        const auto fC = static_cast<double>(fixed_.cols - 1);
+        const auto fR = static_cast<double>(fixed_.rows - 1);
+        const auto mC = static_cast<double>(moving_.cols - 1);
+        const auto mR = static_cast<double>(moving_.rows - 1);
+        const cv::Vec2d fixedSize{fC, fR};
+        cv::Vec2d movingSize{mC, mR};
         for (const auto& [key, face] : uvIn_.faces_as_map()) {
             bool valid{true};
             UVMap::Face f;
@@ -138,7 +147,7 @@ rtg::TransformUVMapNode::TransformUVMapNode() : Node{true}
                     break;
                 }
 
-                auto uvIdx = uvOut_.addUV(newUV);
+                const auto uvIdx = uvOut_.addUV(newUV);
                 f[fIdx++] = uvIdx;
             }
 
@@ -151,7 +160,7 @@ rtg::TransformUVMapNode::TransformUVMapNode() : Node{true}
 }
 
 smgl::Metadata rtg::TransformUVMapNode::serialize_(
-    bool useCache, const fs::path& cacheDir)
+    const bool useCache, const fs::path& cacheDir)
 {
     smgl::Metadata m;
     if (useCache) {
@@ -165,7 +174,7 @@ void rtg::TransformUVMapNode::deserialize_(
     const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     if (meta.contains("uvMap")) {
-        auto file = meta["uvMap"].get<std::string>();
+        const auto file = meta["uvMap"].get<std::string>();
         uvOut_ = ReadUVMap(cacheDir / file);
     }
 }
@@ -180,7 +189,7 @@ rtg::ImageResampleNode::ImageResampleNode() : Node{true}
 
     compute = [=]() {
         cv::Mat tmp;
-        auto cns = moving_.channels();
+        const auto cns = moving_.channels();
         if (forceAlpha_ and (cns == 1 or cns == 3)) {
             tmp = ColorConvertImage(moving_, cns + 1);
         } else {
@@ -191,8 +200,8 @@ rtg::ImageResampleNode::ImageResampleNode() : Node{true}
     };
 }
 
-smgl::Metadata rt::graph::ImageResampleNode::serialize_(
-    bool useCache, const fs::path& cacheDir)
+smgl::Metadata rtg::ImageResampleNode::serialize_(
+    const bool useCache, const fs::path& cacheDir)
 {
     smgl::Metadata m;
     if (useCache and not resampled_.empty()) {
@@ -202,11 +211,70 @@ smgl::Metadata rt::graph::ImageResampleNode::serialize_(
     return m;
 }
 
-void rt::graph::ImageResampleNode::deserialize_(
+void rtg::ImageResampleNode::deserialize_(
     const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     if (meta.contains("image")) {
-        auto file = meta["image"].get<std::string>();
+        const auto file = meta["image"].get<std::string>();
         resampled_ = ReadImage(cacheDir / file);
+    }
+}
+
+rtg::TransformSeriesResampleNode::TransformSeriesResampleNode() : Node{true}
+{
+    registerInputPort("fixedImage", fixedImage);
+    registerInputPort("movingImage", movingImage);
+    registerInputPort("transforms", transforms);
+    registerInputPort("forceAlpha", forceAlpha);
+    registerOutputPort("resampledImages", resampledImages);
+
+    compute = [=]() {
+        cv::Mat tmp;
+        const auto cns = moving_.channels();
+        if (forceAlpha_ and (cns == 1 or cns == 3)) {
+            tmp = ColorConvertImage(moving_, cns + 1);
+        } else {
+            tmp = moving_;
+        }
+        std::cout << "Resampling image with " << tfms_.size()
+                  << " transforms...\n";
+        resampled_.clear();
+        resampled_.reserve(tfms_.size());
+        for (const auto& tfm : tfms_) {
+            auto i = ImageTransformResampler(tmp, fixed_.size(), tfm);
+            resampled_.emplace_back(i);
+        }
+    };
+}
+
+smgl::Metadata rtg::TransformSeriesResampleNode::serialize_(
+    const bool useCache, const fs::path& cacheDir)
+{
+    smgl::Metadata m;
+    if (useCache and not resampled_.empty()) {
+        for (const auto [idx, img] : enumerate(resampled_)) {
+            auto file = "resampled_" + std::to_string(idx) + ".tif";
+            WriteImage(cacheDir / file, img);
+        }
+        m["images"] = std::make_pair("resampled_{}.tif", resampled_.size());
+    }
+    return m;
+}
+
+void rtg::TransformSeriesResampleNode::deserialize_(
+    const smgl::Metadata& meta, const fs::path& cacheDir)
+{
+    if (meta.contains("images")) {
+        const auto [fmt, num] =
+            meta["images"].get<std::pair<std::string, std::size_t>>();
+        resampled_.clear();
+        resampled_.reserve(num);
+        std::string prefix;
+        std::string suffix;
+        std::tie(prefix, std::ignore, suffix) = partition(fmt, "{}");
+        for (const auto i : range(num)) {
+            auto file = prefix + std::to_string(i) + suffix;
+            resampled_.emplace_back(ReadImage(cacheDir / file));
+        }
     }
 }

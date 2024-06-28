@@ -153,7 +153,7 @@ auto main(int argc, char* argv[]) -> int
 
     // Write depth map
     if (parsed.count("depth-map") > 0) {
-        auto imgWriter = graph.insertNode<ImageWriteNode>();
+        auto imgWriter = graph.insertNode<WriteImageNode>();
         imgWriter->path = parsed["depth-map"].as<std::string>();
         imgWriter->image = reorder->depthMapOut;
     }

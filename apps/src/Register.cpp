@@ -81,7 +81,8 @@ auto main(int argc, char* argv[]) -> int
         ("deformable-mesh-size", po::value<unsigned>()->default_value(12),
             "The deformable mesh fill size")
         ("deformable-tolerance", po::value<double>()->default_value(.0001),
-            "The deformable gradient magnitude tolerance");
+            "The deformable gradient magnitude tolerance")
+        ("deformable-intermediates", po::value<std::string>(), "");
 
     po::options_description all("Usage");
     all.add(required).add(graphOptions)
@@ -150,11 +151,11 @@ auto main(int argc, char* argv[]) -> int
         results["uvMap"] = &fixed->uvMap;
         results["fixedImage"] = &fixed->image;
     } else {
-        auto fixed = graph.insertNode<ImageReadNode>();
+        auto fixed = graph.insertNode<ReadImageNode>();
         fixed->path = fixedPath;
         results["fixedImage"] = &fixed->image;
     }
-    auto moving = graph.insertNode<ImageReadNode>();
+    auto moving = graph.insertNode<ReadImageNode>();
     moving->path = movingPath;
     auto compositeTfms = graph.insertNode<CompositeTransformNode>();
 
@@ -196,12 +197,12 @@ auto main(int argc, char* argv[]) -> int
 
             // Optionally load masks
             if (parsed.count("fixed-mask") > 0) {
-                auto maskRead = graph.insertNode<ImageReadNode>();
+                auto maskRead = graph.insertNode<ReadImageNode>();
                 maskRead->path = parsed["fixed-mask"].as<std::string>();
                 genLdm->fixedMask = maskRead->image;
             }
             if (parsed.count("moving-mask") > 0) {
-                auto maskRead = graph.insertNode<ImageReadNode>();
+                auto maskRead = graph.insertNode<ReadImageNode>();
                 maskRead->path = parsed["moving-mask"].as<std::string>();
                 genLdm->movingMask = maskRead->image;
             }
@@ -264,6 +265,22 @@ auto main(int argc, char* argv[]) -> int
 
         // Add transform to final composite
         compositeTfms->second = deformable->transform;
+
+        // Save deformable intermediates
+        if (parsed.count("deformable-intermediates") > 0) {
+            deformable->captureIntermediates = true;
+            auto applyIntermediate =
+                graph.insertNode<TransformSeriesResampleNode>();
+            applyIntermediate->fixedImage = *results["fixedImage"];
+            applyIntermediate->movingImage = resample1->resampledImage;
+            applyIntermediate->transforms = deformable->intermediates;
+            applyIntermediate->forceAlpha = parsed.count("enable-alpha") > 0;
+
+            auto saveIntermediate = graph.insertNode<WriteImageSeriesNode>();
+            saveIntermediate->path =
+                parsed["deformable-intermediates"].as<std::string>();
+            saveIntermediate->images = applyIntermediate->resampledImages;
+        }
     }
 
     // Handle 2D-to-3D registration
@@ -298,7 +315,7 @@ auto main(int argc, char* argv[]) -> int
         resample2->forceAlpha = parsed.count("enable-alpha") > 0;
 
         ///// Write the output image /////
-        auto writer = graph.insertNode<ImageWriteNode>();
+        auto writer = graph.insertNode<WriteImageNode>();
         writer->path = outputPath;
         writer->image = resample2->resampledImage;
     }

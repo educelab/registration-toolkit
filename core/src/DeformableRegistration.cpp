@@ -18,9 +18,12 @@ using Metric =
 using Optimizer = itk::RegularStepGradientDescentOptimizer;
 using Registration = itk::ImageRegistrationMethod<Image8UC1, Image8UC1>;
 using BSplineParameters = DeformableRegistration::Transform::ParametersType;
+using Transform = DeformableRegistration::Transform;
 
-static constexpr double DEFAULT_MAX_STEP_FACTOR = 1.0 / 500.0;
-static constexpr double DEFAULT_MIN_STEP_FACTOR = 1.0 / 500000.0;
+namespace
+{
+constexpr double DEFAULT_MAX_STEP_FACTOR = 1.0 / 500.0;
+constexpr double DEFAULT_MIN_STEP_FACTOR = 1.0 / 500000.0;
 
 /* The metric requires two parameters to be selected: the number
 of bins used to compute the entropy and the number of spatial samples
@@ -32,12 +35,11 @@ smooth and do not contain much detail, then using approximately
 1 percent of the pixels will do. On the other hand, if the images
 are detailed, it may be necessary to use a much higher proportion,
 such as 20 percent. */
-static constexpr std::size_t DEFAULT_HISTOGRAM_BINS = 50;
-static constexpr double DEFAULT_SAMPLE_FACTOR = 1.0 / 80.0;
+constexpr std::size_t DEFAULT_HISTOGRAM_BINS = 50;
+constexpr double DEFAULT_SAMPLE_FACTOR = 1.0 / 80.0;
 
-using Transform = DeformableRegistration::Transform;
-
-class ReportMetricCallback : public itk::Command
+// Callback for printing iteration metrics to the command line
+class ReportMetricCallback final : public itk::Command
 {
 protected:
     ReportMetricCallback() = default;
@@ -48,7 +50,7 @@ public:
 
     static auto New() -> Pointer
     {
-        Pointer smartPtr = ::itk::ObjectFactory<ReportMetricCallback>::Create();
+        Pointer smartPtr = itk::ObjectFactory<ReportMetricCallback>::Create();
         if (smartPtr == nullptr) {
             smartPtr = new ReportMetricCallback;
         }
@@ -56,21 +58,62 @@ public:
         return smartPtr;
     }
 
-    void Execute(itk::Object* caller, const itk::EventObject& event) override
+    void Execute(Object* caller, const itk::EventObject& event) override
     {
-        Execute(reinterpret_cast<const itk::Object*>(caller), event);
+        Execute(reinterpret_cast<const Object*>(caller), event);
     }
 
-    void Execute(
-        const itk::Object* object, const itk::EventObject& event) override
+    void Execute(const Object* object, const itk::EventObject& event) override
     {
         const auto* optimizer = dynamic_cast<const Optimizer*>(object);
         if (not itk::IterationEvent().CheckEvent(&event)) {
             return;
         }
-        std::cout << optimizer->GetValue() << std::endl;
+        std::cerr << optimizer->GetValue() << "\n";
     }
 };
+
+// Callback for printing iteration metrics to the command line
+class SaveTransformCallback final : public itk::Command
+{
+protected:
+    SaveTransformCallback() = default;
+
+public:
+    using Pointer = itk::SmartPointer<SaveTransformCallback>;
+    using Optimizer = itk::RegularStepGradientDescentOptimizer;
+
+    Transform::Pointer prototype;
+    std::vector<Transform::Pointer> tfms;
+
+    static auto New(const Transform::Pointer& prototype) -> Pointer
+    {
+        Pointer smartPtr = itk::ObjectFactory<SaveTransformCallback>::Create();
+        if (smartPtr == nullptr) {
+            smartPtr = new SaveTransformCallback;
+        }
+        smartPtr->UnRegister();
+        smartPtr->prototype = prototype->Clone();
+        return smartPtr;
+    }
+
+    void Execute(Object* caller, const itk::EventObject& event) override
+    {
+        Execute(reinterpret_cast<const Object*>(caller), event);
+    }
+
+    void Execute(const Object* object, const itk::EventObject& event) override
+    {
+        const auto* optimizer = dynamic_cast<const Optimizer*>(object);
+        if (not itk::IterationEvent().CheckEvent(&event)) {
+            return;
+        }
+        auto tfm = prototype->Clone();
+        tfm->SetParameters(optimizer->GetCurrentPosition());
+        tfms.emplace_back(tfm);
+    }
+};
+}  // namespace
 
 void DeformableRegistration::setFixedImage(const cv::Mat& i)
 {
@@ -85,6 +128,11 @@ void DeformableRegistration::setMovingImage(const cv::Mat& i)
 void DeformableRegistration::setNumberOfIterations(std::size_t i)
 {
     iterations_ = i;
+}
+
+auto DeformableRegistration::getNumberOfIterations() const -> std::size_t
+{
+    return iterations_;
 }
 
 auto DeformableRegistration::getTransform() -> Transform::Pointer
@@ -112,15 +160,33 @@ auto DeformableRegistration::getGradientMagnitudeTolerance() const -> double
     return gradMagTol_;
 }
 
-void DeformableRegistration::setReportMetrics(bool i) { reportMetrics_ = i; }
+void DeformableRegistration::setReportMetrics(const bool i)
+{
+    reportMetrics_ = i;
+}
 
 auto DeformableRegistration::getReportMetrics() const -> bool
 {
     return reportMetrics_;
 }
 
-auto DeformableRegistration::compute()
-    -> DeformableRegistration::Transform::Pointer
+void DeformableRegistration::setCaptureIntermediates(const bool i)
+{
+    captureIntermediates_ = i;
+}
+
+auto DeformableRegistration::getCaptureIntermediates() const -> bool
+{
+    return captureIntermediates_;
+}
+
+auto DeformableRegistration::getIntermediates() const
+    -> std::vector<Transform::Pointer>
+{
+    return intermediates_;
+}
+
+auto DeformableRegistration::compute() -> Transform::Pointer
 {
     ///// Create grayscale images /////
     const auto fixed8u = QuantizeImage(fixedImage_, CV_8U);
@@ -162,6 +228,12 @@ auto DeformableRegistration::compute()
         optimizer->AddObserver(
             itk::IterationEvent(), ReportMetricCallback::New());
     }
+    itk::SmartPointer<SaveTransformCallback> captureTfms;
+    intermediates_.clear();
+    if (captureIntermediates_) {
+        captureTfms = SaveTransformCallback::New(output_);
+        optimizer->AddObserver(itk::IterationEvent(), captureTfms);
+    }
 
     registration->SetFixedImage(fixed);
     registration->SetMovingImage(moving);
@@ -198,9 +270,12 @@ auto DeformableRegistration::compute()
 
     // Report final values as requested
     if (reportMetrics_) {
-        std::cout << "Stop Condition: ";
-        std::cout << optimizer->GetStopConditionDescription() << "\n";
-        std::cout << "Final Metric Value:" << optimizer->GetValue() << "\n";
+        std::cerr << "Stop Condition: ";
+        std::cerr << optimizer->GetStopConditionDescription() << "\n";
+        std::cerr << "Final Metric Value: " << optimizer->GetValue() << "\n";
+    }
+    if (captureIntermediates_) {
+        intermediates_ = captureTfms->tfms;
     }
 
     output_->SetParameters(registration->GetLastTransformParameters());

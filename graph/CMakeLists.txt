@@ -26,6 +26,7 @@ add_library("${namespace}graph" ALIAS rt_graph)
 target_include_directories(rt_graph
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${libcore_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(rt_graph

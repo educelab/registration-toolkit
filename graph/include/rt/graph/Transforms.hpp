@@ -236,5 +236,67 @@ private:
         const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
 };
 
+/**
+ * @brief Resample an image using a transform series
+ *
+ * Creates a new image the same size as the provided fixed image, then uses
+ * the provided list of transforms to map the moving image into this new image
+ * space, one image for every transform.
+ *
+ * @see ImageTransformResampler
+ */
+class TransformSeriesResampleNode : public smgl::Node
+{
+public:
+    /** List of transforms type */
+    using TransformList = std::vector<Transform::Pointer>;
+    /** List of images type */
+    using ImageList = std::vector<cv::Mat>;
+
+    /** Default constructor */
+    TransformSeriesResampleNode();
+
+    /** @name Input Ports */
+    /**@{*/
+    /** @brief Fixed image port */
+    smgl::InputPort<cv::Mat> fixedImage{&fixed_};
+    /** @brief Moving image port */
+    smgl::InputPort<cv::Mat> movingImage{&moving_};
+    /** @brief Transforms port */
+    smgl::InputPort<TransformList> transforms{&tfms_};
+    /**
+     * @brief Force alpha channel port
+     *
+     * If true, an alpha channel will be added to the output image even if the
+     * moving image does not have one.
+     */
+    smgl::InputPort<bool> forceAlpha{&forceAlpha_};
+    /**@}*/
+
+    /** @name Output Ports */
+    /**@{*/
+    /** @brief Resampled image port */
+    smgl::OutputPort<ImageList> resampledImages{&resampled_};
+    /**@}*/
+
+private:
+    /** Force alpha flag */
+    bool forceAlpha_{false};
+    /** Fixed image */
+    cv::Mat fixed_;
+    /** Moving image */
+    cv::Mat moving_;
+    /** Transforms list */
+    TransformList tfms_;
+    /** Resampled images list */
+    ImageList resampled_;
+    /** Graph serialize */
+    smgl::Metadata serialize_(
+        bool useCache, const filesystem::path& cacheDir) override;
+    /** Graph deserialize */
+    void deserialize_(
+        const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
+};
+
 }  // namespace graph
 }  // namespace rt

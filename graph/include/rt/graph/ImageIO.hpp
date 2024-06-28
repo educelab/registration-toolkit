@@ -15,11 +15,11 @@ namespace rt::graph
  * @brief Image File Reader
  * @see ReadImage
  */
-class ImageReadNode : public smgl::Node
+class ReadImageNode : public smgl::Node
 {
 public:
     /** Default constructor */
-    ImageReadNode();
+    ReadImageNode();
 
     /** @name Input Ports */
     /**@{*/
@@ -51,11 +51,11 @@ private:
  * @brief Image File Writer
  * @see WriteImage
  */
-class ImageWriteNode : public smgl::Node
+class WriteImageNode : public smgl::Node
 {
 public:
     /** Default constructor */
-    ImageWriteNode();
+    WriteImageNode();
 
     /** @name Input Ports */
     /**@{*/
@@ -70,6 +70,42 @@ private:
     filesystem::path path_;
     /** Image to write */
     cv::Mat img_;
+    /** Graph serialize */
+    smgl::Metadata serialize_(
+        bool /*unused*/, const filesystem::path& /*unused*/) override;
+    /** Graph deserialize */
+    void deserialize_(
+        const smgl::Metadata& meta,
+        const filesystem::path& /*unused*/) override;
+};
+
+/**
+ * @brief Image Series File Writer
+ *
+ * List WriteImageNode, but writes a series of images
+ */
+class WriteImageSeriesNode : public smgl::Node
+{
+public:
+    /** List of images type */
+    using ImageList = std::vector<cv::Mat>;
+
+    /** Default constructor */
+    WriteImageSeriesNode();
+
+    /** @name Input Ports */
+    /**@{*/
+    /** @brief Image path port */
+    smgl::InputPort<filesystem::path> path{&path_};
+    /** @brief Image port */
+    smgl::InputPort<ImageList> images{&imgs_};
+    /**@}*/
+
+private:
+    /** File path */
+    filesystem::path path_;
+    /** Image to write */
+    ImageList imgs_;
     /** Graph serialize */
     smgl::Metadata serialize_(
         bool /*unused*/, const filesystem::path& /*unused*/) override;

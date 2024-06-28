@@ -64,7 +64,7 @@ rtg::ReorderTextureNode::ReorderTextureNode()
 }
 
 auto rtg::ReorderTextureNode::serialize_(
-    bool useCache, const fs::path& cacheDir) -> smgl::Metadata
+    const bool useCache, const fs::path& cacheDir) -> smgl::Metadata
 {
     smgl::Metadata m{
         {"samplingOrigin", reorder_.samplingOrigin()},
@@ -97,11 +97,11 @@ void rtg::ReorderTextureNode::deserialize_(
     reorder_.setSampleDim(meta["sampleDim"].get<std::size_t>());
     reorder_.setUseFirstIntersection(meta["useFirstIntersection"].get<bool>());
     if (meta.contains("uvMap")) {
-        auto file = meta["uvMap"].get<std::string>();
+        const auto file = meta["uvMap"].get<std::string>();
         outUV_ = ReadUVMap(cacheDir / file);
     }
     if (meta.contains("image")) {
-        auto file = meta["image"].get<std::string>();
+        const auto file = meta["image"].get<std::string>();
         outImg_ = ReadImage(cacheDir / file);
     }
 }
