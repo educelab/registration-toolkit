@@ -122,8 +122,14 @@ auto OBJWriter::write_mtl_() -> int
 
     // Path to the texture file, relative to the MTL file
     if (not texture_.empty() or not textureSrc_.empty()) {
+        auto tPath = outputPath_;
+        if (not texture_.empty()) {
+            tPath.replace_extension("tif");
+        } else {
+            tPath.replace_extension(textureSrc_.extension());
+        }
         outputMTL_ << "\nnewmtl image\n";
-        outputMTL_ << "map_Kd " << outputPath_.stem().string() + ".tif\n";
+        outputMTL_ << "map_Kd " << tPath.filename().string() + "\n";
     }
 
     outputMTL_.close();
@@ -135,16 +141,17 @@ auto OBJWriter::write_texture_() -> int
 {
     // Output path
     fs::path p = outputPath_;
-    p.replace_extension("tif");
 
     // Prioritize the provided texture map
     if (not texture_.empty()) {
         std::cerr << "Writing texture image...\n";
+        p.replace_extension("tif");
         rt::WriteImage(p, texture_);
     }
     // Copy from the provided source file
     else if (not textureSrc_.empty()) {
         std::cerr << "Copying texture image...\n";
+        p.replace_extension(textureSrc_.extension());
         fs::copy_file(textureSrc_, p, fs::copy_options::overwrite_existing);
     } else {
         return EXIT_FAILURE;
