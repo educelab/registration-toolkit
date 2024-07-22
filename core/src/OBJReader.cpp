@@ -105,8 +105,10 @@ auto ParseFace(const std::vector<std::string_view>& strs) -> Face
             faceType == RefType::VertexWithTextureAndNormal) {
             v[1] = to_numeric<std::size_t>(vinfo[1]);
         }
-        if (faceType == RefType::VertexWithNormal or
-            faceType == RefType::VertexWithTextureAndNormal) {
+        if (faceType == RefType::VertexWithNormal) {
+            v[2] = to_numeric<std::size_t>(vinfo[1]);
+        }
+        if (faceType == RefType::VertexWithTextureAndNormal) {
             v[2] = to_numeric<std::size_t>(vinfo[2]);
         }
         if (faceType == RefType::Invalid) {
