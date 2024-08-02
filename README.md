@@ -85,10 +85,13 @@ To align a moving image `close-up.jpg` to a fixed image `wide-angle.jpg`:
 rt_register -f wide-angle.jpg -m close-up.jpg -o result.jpg
 ```
 
+See the [image registration guide](docs/pages/using-reg-toolkit.md) for a more 
+thorough walkthrough of image-to-image alignment.
+
 **Note:** By default, this application will attempt to automatically detect and 
 match features between the two images in order to perform registration. To 
-provide pre-computed landmarks, please provide a [Landmarks file](#Landmarks-files) using the 
-`--input-landmarks` flag.
+provide pre-computed landmarks, please provide a 
+[Landmarks file](#Landmarks-files) using the `--input-landmarks` flag.
 
 ### Image-to-3D Mesh Registration
 To align a moving image `color-photo.jpg` to a textured 3D mesh `grayscale-mesh.obj`:
