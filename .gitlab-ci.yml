@@ -38,6 +38,6 @@ test:ubuntu:22.04:
 test:macos:
   extends: .build_and_test
   variables:
-      CMAKE_PREFIX_PATH: "/usr/local/educelab/vc-deps-1.8.1-static-debug"
+      CMAKE_PREFIX_PATH: "/usr/local/educelab/vc-deps-1.9.0-static-debug"
   tags:
     - macos
