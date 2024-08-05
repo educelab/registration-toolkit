@@ -18,7 +18,11 @@ message(STATUS "Using filesystem library: ${RT_FS_LIB}")
 find_package(OpenCV 4 QUIET REQUIRED)
 
 ### ITK ###
-find_package(ITK REQUIRED)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND  CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 15)
+    find_package(ITK 5.4 REQUIRED)
+else()
+    find_package(ITK REQUIRED)
+endif()
 include(${ITK_USE_FILE})
 set(ITKIOTransformLibs
     ITKIOTransformBase

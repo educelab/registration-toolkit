@@ -7,7 +7,7 @@ depths and types. Fully supports gray, gray+alpha, RGB, and RGBA images in 8,
 
 ## Requirements
 * CMake 3.24+
-* C++17 compiler
+* C++20 compiler
 * Boost 1.58+
     - Required: Program Options
     - Optional: Filesystem - This project will automatically check if the 

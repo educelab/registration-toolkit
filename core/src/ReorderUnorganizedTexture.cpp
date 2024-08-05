@@ -3,13 +3,15 @@
 #include <array>
 #include <cmath>
 
-#include <bvh/bvh.hpp>
-#include <bvh/primitive_intersectors.hpp>
-#include <bvh/ray.hpp>
-#include <bvh/single_ray_traverser.hpp>
-#include <bvh/sweep_sah_builder.hpp>
-#include <bvh/triangle.hpp>
-#include <bvh/vector.hpp>
+#include <bvh/v2/bvh.h>
+#include <bvh/v2/vec.h>
+#include <bvh/v2/ray.h>
+#include <bvh/v2/node.h>
+#include <bvh/v2/default_builder.h>
+#include <bvh/v2/thread_pool.h>
+#include <bvh/v2/executor.h>
+#include <bvh/v2/stack.h>
+#include <bvh/v2/tri.h>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <vtkOBBTree.h>
@@ -21,12 +23,13 @@
 #include "rt/types/ITK2VTK.hpp"
 
 using Scalar = double;
-using Vector3 = bvh::Vector3<Scalar>;
-using Triangle = bvh::Triangle<Scalar>;
-using Ray = bvh::Ray<Scalar>;
-using Bvh = bvh::Bvh<Scalar>;
-using Intersector = bvh::ClosestPrimitiveIntersector<Bvh, Triangle>;
-using Traverser = bvh::SingleRayTraverser<Bvh>;
+using Vector3 = bvh::v2::Vec<Scalar, 3>;
+using BBox = bvh::v2::BBox<Scalar, 3>;
+using Ray = bvh::v2::Ray<Scalar, 3>;
+using Triangle = bvh::v2::Tri<Scalar, 3>;
+using Node = bvh::v2::Node<Scalar, 3>;
+using Bvh = bvh::v2::Bvh<Node>;
+using PrecomputedTri = bvh::v2::PrecomputedTri<Scalar>;
 
 using namespace rt;
 using namespace educelab;
@@ -292,6 +295,48 @@ auto CreateUVMap(
     return out;
 }
 
+auto IntersectRay(Ray ray, const Bvh& bvh, const std::vector<PrecomputedTri>& tris)
+{
+    struct HitRecord {
+        std::size_t primitiveIdx;
+        Scalar distance;
+        struct
+        {
+            Scalar u;
+            Scalar v;
+        } intersection;
+    };
+    using ReturnType = std::optional<HitRecord>;
+
+    static constexpr auto invalidID = std::numeric_limits<std::size_t>::max();
+    static constexpr std::size_t stack_size = 64;
+    static constexpr bool use_robust_traversal = true;
+
+    auto primId = invalidID;
+    Scalar u, v;
+
+    // Traverse the BVH and get the u, v coordinates of the closest intersection.
+    bvh::v2::SmallStack<Bvh::Index, stack_size> stack;
+    bvh.intersect<false, use_robust_traversal>(ray, bvh.get_root().index, stack,
+        [&] (const auto begin, const auto end) {
+            for (auto i = begin; i < end; ++i) {
+                if (auto hit = tris[i].intersect(ray)) {
+                    primId = i;
+                    u = hit.value().first;
+                    v = hit.value().second;
+                }
+            }
+            return primId != invalidID;
+        });
+
+    if (primId == invalidID) {
+        return ReturnType();
+    }
+
+    HitRecord hit{primId, ray.tmax, {u, v}};
+    return std::make_optional(hit);
+}
+
 }  // namespace
 
 void ReorderUnorganizedTexture::setMesh(const ITKMesh::Pointer& mesh)
@@ -429,7 +474,7 @@ void ReorderUnorganizedTexture::create_texture_()
     zAxis = {0., 0., bbox[5] - bbox[4]};
 
     // Create BVH for mesh
-    std::vector<Triangle> triangles;
+    std::vector<Triangle> tris;
     auto ptIDs = vtkSmartPointer<vtkIdList>::New();
     Vector3 a, b, c;
     for (auto cellIdx : range(mesh->GetNumberOfCells())) {
@@ -440,17 +485,35 @@ void ReorderUnorganizedTexture::create_texture_()
         mesh->GetPoint(ptIDs->GetId(2), c.values);
 
         // Add the face to the BVH tree
-        triangles.emplace_back(a, b, c);
+        tris.emplace_back(a, b, c);
     }
-    Bvh bvh;
-    bvh::SweepSahBuilder<Bvh> builder(bvh);
-    auto [bboxes, centers] = bvh::compute_bounding_boxes_and_centers(
-        triangles.data(), triangles.size());
-    auto meshBBox =
-        bvh::compute_bounding_boxes_union(bboxes.get(), triangles.size());
-    builder.build(meshBBox, bboxes.get(), centers.get(), triangles.size());
-    Intersector intersector(bvh, triangles.data());
-    Traverser traverser(bvh);
+
+    bvh::v2::ThreadPool threadPool;
+    bvh::v2::ParallelExecutor executor(threadPool);
+
+    // Get triangle centers and bounding boxes (required for BVH builder)
+    std::vector<BBox> bboxes(tris.size());
+    std::vector<Vector3> centers(tris.size());
+    executor.for_each(0, tris.size(), [&](const auto begin, const auto end) {
+        for (auto i = begin; i < end; ++i) {
+            bboxes[i] = tris[i].get_bbox();
+            centers[i] = tris[i].get_center();
+        }
+    });
+
+    bvh::v2::DefaultBuilder<Node>::Config config;
+    config.quality = bvh::v2::DefaultBuilder<Node>::Quality::High;
+    auto bvh = bvh::v2::DefaultBuilder<Node>::build(
+        threadPool, bboxes, centers, config);
+
+    // This precomputes some data to speed up traversal further
+    std::vector<PrecomputedTri> precompTris(tris.size());
+    executor.for_each(0, tris.size(), [&](const auto begin, const auto end) {
+        for (auto i = begin; i < end; ++i) {
+            auto j = bvh.prim_ids[i];
+            precompTris[i] = tris[j];
+        }
+    });
 
     // Texture init
     int cols{-1};
@@ -541,16 +604,16 @@ void ReorderUnorganizedTexture::create_texture_()
         Vector3 start(a0[0], a0[1], a0[2]);
         Vector3 dir(a1[0], a1[1], a1[2]);
         Ray ray(start, dir, 0.0, zLen * 2);
-        auto hit = traverser.traverse(ray, intersector);
+        auto hit = IntersectRay(ray, bvh, precompTris);
         if (not hit) {
             continue;
         }
 
         // Assign distance to depth map
-        outputDepthMap_.at<float>(v, u) = static_cast<float>(hit->distance());
+        outputDepthMap_.at<float>(v, u) = static_cast<float>(hit.value().distance);
 
         // Cell info
-        auto cellId = hit->primitive_index;
+        auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
 
         // Get the 2D and 3D pts
         std::vector<cv::Vec3d> uvPts;
@@ -559,7 +622,7 @@ void ReorderUnorganizedTexture::create_texture_()
         }
 
         // Intersection point
-        auto inter = hit->intersection;
+        auto inter = hit.value().intersection;
         cv::Vec3d bCoord{inter.u, inter.v, 1 - inter.u - inter.v};
 
         // Get the UV position of the intersection point
