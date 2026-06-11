@@ -8,6 +8,8 @@
 #include <educelab/core/utils/String.hpp>
 #include <opencv2/imgcodecs.hpp>
 
+#include "rt/Logging.hpp"
+#include "rt/io/ImageIO.hpp"
 #include "rt/types/Exceptions.hpp"
 
 using namespace rt;
@@ -98,7 +100,7 @@ auto ParseFace(const std::vector<std::string_view>& strs) -> Face
     const auto faceType = ClassifyVertexRef(sub[0]);
 
     for (const auto& s : sub) {
-        auto vinfo = split(s, '/');
+        auto vinfo = split(s, "/");
         VRef v{};
         v[0] = to_numeric<std::size_t>(vinfo[0]);
         if (faceType == RefType::VertexWithTexture or
@@ -124,14 +126,13 @@ auto ParseMTLLib(
     const std::vector<std::string_view>& strs) -> fs::path
 {
     // Get mtl path, relative to OBJ directory
-    // Two canonicals because path_ may be relative as well
-    const fs::path mtlPath =
-        fs::canonical(fs::canonical(path.parent_path()) / strs[1]);
+    const auto mtlPath = path.parent_path() / strs[1];
 
     // Open the mtl file
+    rt::logger()->debug("Loading MTL: {}", mtlPath.string());
     std::ifstream ifs(mtlPath.string());
     if (!ifs.good()) {
-        throw IOException("Failed to open mtl file for reading");
+        throw IOException("Failed to open MTL file for reading");
     }
 
     // Find the map_kd line
@@ -145,13 +146,13 @@ auto ParseMTLLib(
         if (line.empty()) {
             continue;
         }
-        auto mtlstrs = split(line, ' ');
+        auto mtlstrs = split(line, " ");
         std::transform(mtlstrs.begin(), mtlstrs.end(), mtlstrs.begin(), &trim);
 
         // Handle map_Kd
         if (mtlstrs[0] == mapKd) {
-            texturePath =
-                fs::canonical(fs::canonical(path.parent_path()) / mtlstrs[1]);
+            texturePath = path.parent_path() / mtlstrs[1];
+            rt::logger()->debug("Parsed texture path: {}", texturePath.string());
         }
         mtlstrs.clear();
     }
@@ -182,7 +183,7 @@ auto OBJReader::getTextureMat() const -> cv::Mat
         throw IOException("Invalid or unset texture image path");
     }
 
-    return cv::imread(texturePath_.string(), -1);
+    return rt::ReadImage(texturePath_);
 }
 
 auto OBJReader::getTexturePath() -> fs::path { return texturePath_; }
@@ -218,7 +219,7 @@ void OBJReader::parse_()
         if (line.empty()) {
             continue;
         }
-        auto strs = split(line, ' ');
+        auto strs = split(line, " ");
         std::transform(strs.begin(), strs.end(), strs.begin(), &trim);
 
         // Handle vertices

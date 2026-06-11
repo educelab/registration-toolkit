@@ -21,7 +21,7 @@ test:ubuntu:24.04:
     DEBIAN_FRONTEND: noninteractive
   before_script:
     - apt-get -y update
-    - apt-get install -y build-essential cmake curl git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
+    - apt-get install -y build-essential cmake curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev
 
 test:ubuntu:22.04:
   image: ubuntu:22.04
@@ -30,7 +30,7 @@ test:ubuntu:22.04:
     DEBIAN_FRONTEND: noninteractive
   before_script:
     - apt-get -y update
-    - apt-get install -y build-essential curl git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
+    - apt-get install -y build-essential curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev
     - curl -OL https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.sh
     - chmod +x cmake-3.28.3-linux-x86_64.sh
     - ./cmake-3.28.3-linux-x86_64.sh --skip-license --prefix=/usr/local --exclude-subdir

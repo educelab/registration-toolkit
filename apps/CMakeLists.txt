@@ -1,5 +1,5 @@
 # Only apps *require* Boost
-find_package(Boost REQUIRED COMPONENTS program_options)
+find_package(Boost 1.70 CONFIG REQUIRED COMPONENTS program_options)
 
 add_executable(rt_apply_transform src/ApplyTransform.cpp)
 target_link_libraries(rt_apply_transform
@@ -68,6 +68,21 @@ target_link_libraries(rt_retexture_mesh
     Boost::program_options
 )
 
+add_executable(rt_version src/Version.cpp)
+target_link_libraries(rt_version rt::core)
+
+add_executable(rt_seam_flattening src/SeamFlattening.cpp)
+target_include_directories(rt_seam_flattening
+    PRIVATE
+        $<BUILD_INTERFACE:${OpenABF_SOURCE_DIR}/single_include>
+)
+target_link_libraries(rt_seam_flattening
+    rt::core
+    Boost::program_options
+    Eigen3::Eigen
+    opencv_core
+)
+
 
 if(VC_FOUND)
     add_executable(rt_dewarp src/TextureDewarp.cpp)
@@ -88,6 +103,7 @@ install(
         rt_swap_landmarks
         rt_segment_disegni
         rt_retexture_mesh
+        rt_version
     RUNTIME DESTINATION bin
     COMPONENT Programs
 )

@@ -8,6 +8,7 @@
 #include "rt/io/LandmarkIO.hpp"
 #include "rt/io/UVMapIO.hpp"
 #include "rt/util/ImageConversion.hpp"
+#include "rt/Logging.hpp"
 
 using namespace educelab;
 
@@ -20,7 +21,7 @@ rtg::CompositeTransformNode::CompositeTransformNode() : Node{true}
     registerInputPort("second", second);
     registerOutputPort("result", result);
 
-    compute = [=]() {
+    compute = [this]() {
         const auto tfm = CompositeTransform::New();
         if (first_) {
             tfm->AddTransform(first_);
@@ -58,7 +59,7 @@ rtg::WriteTransformNode::WriteTransformNode()
     registerInputPort("path", path);
     registerInputPort("transform", transform);
     compute = [this]() {
-        std::cout << "Writing transformation to file..." << std::endl;
+        rt::logger()->info("Writing transformation to file: {}", path_.string());
         WriteTransform(path_, tfm_);
     };
 }
@@ -119,7 +120,7 @@ rtg::TransformUVMapNode::TransformUVMapNode() : Node{true}
     registerOutputPort("uvMapOut", uvMapOut);
 
     compute = [this]() {
-        std::cout << "Transform UV map..." << std::endl;
+        rt::logger()->info("Transforming UV map");
         uvOut_ = UVMap();
         uvOut_.ratio(fixed_.cols, fixed_.rows);
         uvOut_.setOrigin(uvIn_.origin());
@@ -187,7 +188,7 @@ rtg::ImageResampleNode::ImageResampleNode() : Node{true}
     registerInputPort("forceAlpha", forceAlpha);
     registerOutputPort("resampledImage", resampledImage);
 
-    compute = [=]() {
+    compute = [this]() {
         cv::Mat tmp;
         const auto cns = moving_.channels();
         if (forceAlpha_ and (cns == 1 or cns == 3)) {
@@ -195,7 +196,7 @@ rtg::ImageResampleNode::ImageResampleNode() : Node{true}
         } else {
             tmp = moving_;
         }
-        std::cout << "Resampling image..." << std::endl;
+        rt::logger()->info("Resampling image");
         resampled_ = ImageTransformResampler(tmp, fixed_.size(), tfm_);
     };
 }
@@ -228,7 +229,7 @@ rtg::TransformSeriesResampleNode::TransformSeriesResampleNode() : Node{true}
     registerInputPort("forceAlpha", forceAlpha);
     registerOutputPort("resampledImages", resampledImages);
 
-    compute = [=]() {
+    compute = [this]() {
         cv::Mat tmp;
         const auto cns = moving_.channels();
         if (forceAlpha_ and (cns == 1 or cns == 3)) {
@@ -236,8 +237,7 @@ rtg::TransformSeriesResampleNode::TransformSeriesResampleNode() : Node{true}
         } else {
             tmp = moving_;
         }
-        std::cout << "Resampling image with " << tfms_.size()
-                  << " transforms...\n";
+        rt::logger()->info("Resampling image with {} transforms", tfms_.size());
         resampled_.clear();
         resampled_.reserve(tfms_.size());
         for (const auto& tfm : tfms_) {

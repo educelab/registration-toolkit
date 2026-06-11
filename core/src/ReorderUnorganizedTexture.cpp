@@ -20,6 +20,7 @@
 #include <educelab/core/utils/Math.hpp>
 #include <educelab/core/utils/Iteration.hpp>
 
+#include "rt/Logging.hpp"
 #include "rt/types/ITK2VTK.hpp"
 
 using Scalar = double;
@@ -177,11 +178,11 @@ auto ComputeUVDensity(
 auto ComputeOBB(vtkPolyData* mesh)
 {
     struct obb_result {
-        cv::Vec3d origin;
-        cv::Vec3d xAxis;
-        cv::Vec3d yAxis;
-        cv::Vec3d zAxis;
-        std::array<double, 3> size{};
+        cv::Vec3d origin{0, 0, 0};
+        cv::Vec3d xAxis{1, 0, 0};
+        cv::Vec3d yAxis{0, 1, 0};
+        cv::Vec3d zAxis{0, 0, 1};
+        std::array<double, 3> size{1, 1, 1};
     } res;
 
     const auto obbTree = vtkSmartPointer<vtkOBBTree>::New();
@@ -530,14 +531,12 @@ void ReorderUnorganizedTexture::create_texture_()
             rows = static_cast<int>(std::ceil(yLen / sampleRate));
             break;
         case SamplingMode::OutputWidth:
-            sampleRate =
-                static_cast<double>(xLen) / static_cast<double>(sampleDim_);
+            sampleRate = xLen / static_cast<double>(sampleDim_);
             cols = static_cast<int>(sampleDim_);
             rows = static_cast<int>(std::ceil(yLen / sampleRate));
             break;
         case SamplingMode::OutputHeight:
-            sampleRate =
-                static_cast<double>(yLen) / static_cast<double>(sampleDim_);
+            sampleRate = yLen / static_cast<double>(sampleDim_);
             cols = static_cast<int>(std::ceil(xLen / sampleRate));
             rows = static_cast<int>(sampleDim_);
             break;
@@ -549,8 +548,8 @@ void ReorderUnorganizedTexture::create_texture_()
             break;
     }
 
-    std::cerr << "Output size: " << cols << "x" << rows << " ";
-    std::cerr << "(Sample rate: " << sampleRate << ")" << std::endl;
+    logger()->debug(
+        "Output size: {}x{} (Sample rate: {:.5g})", cols, rows, sampleRate);
 
     // Set up the output image
     outputTexture_ = cv::Mat::zeros(rows, cols, CV_8UC3);

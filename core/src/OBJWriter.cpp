@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "rt/io/ImageIO.hpp"
+#include "rt/Logging.hpp"
 
 namespace fs = rt::filesystem;
 
@@ -51,13 +52,12 @@ auto OBJWriter::validate() -> bool
         (outputPath_.extension() == ".OBJ" ||
          outputPath_.extension() == ".obj");
     // Make sure the output directory exists
-    const bool pathExists =
-        fs::is_directory(fs::canonical(outputPath_.parent_path()));
+
     // Check that the mesh exists and has points
     const bool meshHasPoints =
         (mesh_.IsNotNull() && mesh_->GetNumberOfPoints() != 0);
 
-    return (hasExt && pathExists && meshHasPoints);
+    return (hasExt && meshHasPoints);
 }
 
 ///// Output Methods /////
@@ -117,7 +117,7 @@ auto OBJWriter::write_mtl_() -> int
     // See the following for more info:
     // - http://paulbourke.net/dataformats/mtl/
     // - https://people.sc.fsu.edu/~jburkardt/data/mtl/mtl.html
-    std::cerr << "Writing MTL...\n";
+    rt::logger()->debug("Writing MTL: {}", p.string());
     outputMTL_ << "newmtl default\n";
 
     // Path to the texture file, relative to the MTL file
@@ -144,14 +144,14 @@ auto OBJWriter::write_texture_() -> int
 
     // Prioritize the provided texture map
     if (not texture_.empty()) {
-        std::cerr << "Writing texture image...\n";
         p.replace_extension("tif");
+        rt::logger()->debug("Writing texture image: {}", p.string());
         rt::WriteImage(p, texture_);
     }
     // Copy from the provided source file
     else if (not textureSrc_.empty()) {
-        std::cerr << "Copying texture image...\n";
         p.replace_extension(textureSrc_.extension());
+        rt::logger()->debug("Copying texture image: {} -> {}", textureSrc_.string(), p.string());
         fs::copy_file(textureSrc_, p, fs::copy_options::overwrite_existing);
     } else {
         return EXIT_FAILURE;
@@ -178,7 +178,7 @@ auto OBJWriter::write_vertices_() -> int
     if (!outputMesh_.is_open() || mesh_->GetNumberOfPoints() == 0) {
         return EXIT_FAILURE;
     }
-    std::cerr << "Writing vertices...\n";
+    rt::logger()->debug("Writing {} vertices", mesh_->GetNumberOfPoints());
 
     outputMesh_ << "# Vertices: " << mesh_->GetNumberOfPoints() << "\n";
 
@@ -186,7 +186,7 @@ auto OBJWriter::write_vertices_() -> int
     std::size_t vIndex = 1;
     std::size_t vnIndex = 1;
     for (auto pt = mesh_->GetPoints()->Begin(); pt != mesh_->GetPoints()->End();
-         pt++) {
+         ++pt) {
         // Make a new point link for this point
         PointLink pointLink(vIndex, UNSET_VALUE, UNSET_VALUE);
 
@@ -217,7 +217,7 @@ auto OBJWriter::write_texture_coordinates_() -> int
     if (!outputMesh_.is_open() || uvMap_.empty()) {
         return EXIT_FAILURE;
     }
-    std::cerr << "Writing texture coordinates...\n";
+    rt::logger()->debug("Writing {} texture coordinates", uvMap_.size());
 
     // Ensure coordinates are relative to bottom left
     const auto startingOrigin = uvMap_.origin();
@@ -246,12 +246,14 @@ auto OBJWriter::write_faces_() -> int
     if (!outputMesh_.is_open() || mesh_->GetNumberOfCells() == 0) {
         return EXIT_FAILURE;
     }
-    std::cerr << "Writing faces...\n";
+    rt::logger()->debug("Writing {} faces", mesh_->GetNumberOfCells());
 
     outputMesh_ << "# Faces: " << mesh_->GetNumberOfCells() << "\n";
 
     bool usingImageMTL = false;
-    outputMesh_ << "usemtl default\n";
+    if (not uvMap_.empty()) {
+        outputMesh_ << "usemtl default\n";
+    }
 
     // Iterate over the faces of the mesh
     for (auto cell = mesh_->GetCells()->Begin();

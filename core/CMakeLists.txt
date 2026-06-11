@@ -11,10 +11,12 @@ set(type_srcs
     src/UVMap.cpp
     src/ITK2VTK.cpp
     src/Transforms.cpp
+    src/ITKMesh.cpp
 )
 
 set(util_srcs
     src/ImageConversion.cpp
+    src/CalculateNormals.cpp
 )
 
 set(srcs
@@ -25,6 +27,7 @@ set(srcs
     src/ImageTransformResampler.cpp
     src/BSplineLandmarkWarping.cpp
     src/DisegniSegmenter.cpp
+    src/Logging.cpp
 )
 
 configure_file(src/Version.cpp.in Version.cpp)
@@ -62,6 +65,7 @@ target_link_libraries(rt_core
         ITKCommon
         ITKTransform
         ${core_vtk_public}
+        spdlog::spdlog
     PRIVATE
         opencv_calib3d
         opencv_features2d

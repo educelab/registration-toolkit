@@ -1,6 +1,7 @@
 #include "rt/graph/LandmarkRegistration.hpp"
 
 #include "rt/io/LandmarkIO.hpp"
+#include "rt/Logging.hpp"
 
 namespace rtg = rt::graph;
 namespace fs = rt::filesystem;
@@ -30,7 +31,7 @@ rtg::LandmarkDetectorNode::LandmarkDetectorNode() : Node{true}
     registerOutputPort("fixedLandmarks", fixedLandmarks);
     registerOutputPort("movingLandmarks", movingLandmarks);
     compute = [this]() {
-        std::cout << "Detecting landmarks..." << std::endl;
+        rt::logger()->info("Detecting landmarks");
         detector_.setFixedImage(fixedImg_);
         detector_.setFixedMask(fixedMask_);
         detector_.setMovingImage(movingImg_);
@@ -93,7 +94,7 @@ rtg::AffineLandmarkRegistrationNode::AffineLandmarkRegistrationNode()
     registerOutputPort("transform", transform);
 
     compute = [this]() {
-        std::cout << "Running affine registration..." << std::endl;
+        rt::logger()->info("Running affine registration");
         reg_.setFixedLandmarks(fixed_);
         reg_.setMovingLandmarks(moving_);
         tfm_ = reg_.compute();
@@ -131,7 +132,7 @@ rtg::BSplineLandmarkWarpingNode::BSplineLandmarkWarpingNode() : Node{true}
     registerOutputPort("transform", transform);
 
     compute = [this]() {
-        std::cout << "Running B-spline landmark registration..." << std::endl;
+        rt::logger()->info("Running B-spline landmark registration");
         reg_.setFixedLandmarks(fixed_);
         reg_.setFixedImage(fixedImg_);
         reg_.setMovingLandmarks(moving_);

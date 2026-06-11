@@ -1,13 +1,7 @@
-find_package(nlohmann_json 3.9.1)
-if(nlohmann_json_FOUND)
-    option(RT_BUILD_JSON "Build in-source JSON library" off)
-else()
-    option(RT_BUILD_JSON "Build in-source JSON library" on)
-endif()
 FetchContent_Declare(
     smgl
     GIT_REPOSITORY https://gitlab.com/educelab/smgl.git
-    GIT_TAG v0.10.1
+    GIT_TAG d74d76d121a18afab9b12dd9dc3d643f4e620ff1
     EXCLUDE_FROM_ALL
 )
 set(SMGL_BUILD_JSON ${RT_BUILD_JSON} CACHE INTERNAL "")

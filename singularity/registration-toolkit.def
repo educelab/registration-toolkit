@@ -1,9 +1,9 @@
 Bootstrap: docker
-From: ubuntu:22.04
+From: ubuntu:24.04
 
 %labels
-  MAINTAINER Stephen Parsons <stephen.parsons@uky.edu>
-  OS Ubuntu 22.04
+  MAINTAINER C. Seth Parker <c.seth.parker@uky.edu>
+  OS Ubuntu 24.04
 
 %files
   /tmp/registration-toolkit /usr/local/educelab/registration-toolkit
@@ -17,6 +17,8 @@ From: ubuntu:22.04
     git \
     imagemagick \
     libopencv-dev \
+    libspdlog-dev \
+    libeigen3-dev \
     libvtk9-dev \
     libvtk9-qt-dev \
     libboost-program-options-dev \
@@ -49,6 +51,10 @@ From: ubuntu:22.04
 
   # Remove build directory
   rm -rf build/
+
+  # Update ldd search path
+  echo /usr/local/lib | tee -a /etc/ld.so.conf.d/local.conf
+  ldconfig
 
   # Make writable
   echo "Cleaning up installation directory..."

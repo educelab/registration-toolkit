@@ -2,6 +2,8 @@
 
 #include <educelab/core/utils/Iteration.hpp>
 
+#include "rt/Logging.hpp"
+
 using namespace educelab;
 namespace rtg = rt::graph;
 namespace fs = rt::filesystem;
@@ -30,8 +32,8 @@ rtg::DeformableRegistrationNode::DeformableRegistrationNode()
     registerOutputPort("transform", transform);
     registerOutputPort("intermediates", intermediates);
 
-    compute = [=]() {
-        std::cout << "Running deformable registration..." << std::endl;
+    compute = [this]() {
+        rt::logger()->info("Running deformable registration");
         tfm_ = reg_.compute();
         auto inters = reg_.getIntermediates();
         intermediates_.clear();

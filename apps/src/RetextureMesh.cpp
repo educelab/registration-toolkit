@@ -7,6 +7,7 @@
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/OBJReader.hpp"
 #include "rt/io/OBJWriter.hpp"
+#include "rt/util/CalculateNormals.hpp"
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
@@ -22,6 +23,7 @@ auto main(int argc, char** argv) -> int
         ("help,h", "Show this message")
         ("input-mesh,i", po::value<std::string>()->required(), "Input mesh file")
         ("texture,t", po::value<std::string>()->required(), "New texture image")
+        ("compute-normals", po::bool_switch(), "Compute mesh normals")
         ("output-mesh,o", po::value<std::string>()->required(), "Output mesh file");
 
     po::options_description all("Usage");
@@ -58,11 +60,18 @@ auto main(int argc, char** argv) -> int
     // Load the image
     const fs::path imagePath = parsed["texture"].as<std::string>();
 
+    // Compute normals
+    auto mesh = reader.getMesh();
+    if (parsed["compute-normals"].as<bool>()) {
+        rt::CalculateNormals calcNormals(mesh);
+        mesh = calcNormals.compute();
+    }
+
     // Write the new mesh
     const fs::path outputPath = parsed["output-mesh"].as<std::string>();
     rt::io::OBJWriter writer;
     writer.setPath(outputPath);
-    writer.setMesh(reader.getMesh());
+    writer.setMesh(mesh);
     writer.setUVMap(reader.getUVMap());
     writer.setTextureSource(imagePath);
     writer.write();
