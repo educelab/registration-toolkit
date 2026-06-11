@@ -23,7 +23,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND  CMAKE_CXX_COMPILER_VERSION V
 else()
     find_package(ITK REQUIRED)
 endif()
-include(${ITK_USE_FILE})
 set(ITKIOTransformLibs
     ITKIOTransformBase
     ITKIOTransformHDF5
