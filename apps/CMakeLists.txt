@@ -84,13 +84,17 @@ target_link_libraries(rt_seam_flattening
 )
 
 
-if(VC_FOUND)
-    add_executable(rt_dewarp src/TextureDewarp.cpp)
-    target_link_libraries(rt_dewarp
-        rt::core
-        VC::texturing
-    )
-endif()
+add_executable(rt_dewarp src/TextureDewarp.cpp)
+target_include_directories(rt_dewarp
+    PRIVATE
+        $<BUILD_INTERFACE:${OpenABF_SOURCE_DIR}/single_include>
+)
+target_link_libraries(rt_dewarp
+    rt::core
+    Boost::program_options
+    Eigen3::Eigen
+    opencv_core
+)
 
 install(
     TARGETS
@@ -104,6 +108,7 @@ install(
         rt_segment_disegni
         rt_retexture_mesh
         rt_version
+        rt_dewarp
     RUNTIME DESTINATION bin
     COMPONENT Programs
 )
