@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <exception>
+#include <memory>
 
 #include <opencv2/calib3d.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include "rt/util/ImageConversion.hpp"
+#include "rt/Logging.hpp"
 
 using namespace rt;
 
@@ -20,6 +22,7 @@ void LandmarkDetector::setMaxImageDim(const int s) { maxImageDim_ = s; }
 
 namespace
 {
+
 auto NeedsResize(const cv::Mat& img, const int dimLimit, float& scale) -> bool
 {
     const auto maxDim = std::max(img.rows, img.cols);
@@ -50,6 +53,7 @@ auto DetectAndMatch(
     const cv::Mat& movingMask,
     const float ratio)
 {
+    cv::setRNGSeed(8240079);
     const auto featureDetector = cv::SIFT::create();
     const auto matcher =
         cv::DescriptorMatcher::create(cv::DescriptorMatcher::FLANNBASED);
@@ -60,16 +64,23 @@ auto DetectAndMatch(
     std::vector<std::vector<cv::DMatch>> matches;
 
     // detect features
+    logger()->debug("Detecting fixed image features (mask: {})", not fixedMask.empty());
     featureDetector->detectAndCompute(
         fixedImg, fixedMask, fixedKeys, fixedDesc);
+    logger()->debug("Detected {} keypoints", fixedKeys.size());
+
+    logger()->debug("Detecting moving image features (mask: {})", not movingMask.empty());
     featureDetector->detectAndCompute(
         movingImg, movingMask, movingKeys, movingDesc);
+    logger()->debug("Detected {} keypoints", movingKeys.size());
 
     // Match keypoints
     matcher->knnMatch(fixedDesc, movingDesc, matches, 2);
+    logger()->debug("{} raw matches", matches.size());
 
     // Apply ratio test
     const auto filtered = RatioTest(matches, ratio);
+    logger()->debug("{} filtered matches", filtered.size());
 
     // collect the actual points
     std::vector<cv::Point2f> fixed;
@@ -109,8 +120,7 @@ auto LandmarkDetector::compute() -> std::vector<LandmarkPair>
     float ms{1.};
     if (NeedsResize(fixedImg, maxImageDim_, fs)) {
         cv::resize(fixedImg, fixedImg, cv::Size(), fs, fs, cv::INTER_AREA);
-        std::cerr << "Resized fixed image: ";
-        std::cerr << fixedImg.cols << "x" << fixedImg.rows << std::endl;
+        logger()->debug("Resized fixed image: {}x{}", fixedImg.cols, fixedImg.rows);
         if (not fixedMask.empty()) {
             cv::resize(
                 fixedMask, fixedMask, cv::Size(), fs, fs, cv::INTER_AREA);
@@ -118,8 +128,7 @@ auto LandmarkDetector::compute() -> std::vector<LandmarkPair>
     }
     if (NeedsResize(movingImg, maxImageDim_, ms)) {
         cv::resize(movingImg, movingImg, cv::Size(), ms, ms, cv::INTER_AREA);
-        std::cerr << "Resized moving image: ";
-        std::cerr << movingImg.cols << "x" << movingImg.rows << std::endl;
+        logger()->debug("Resized moving image: {}x{}", movingImg.cols, movingImg.rows);
         if (not movingMask.empty()) {
             cv::resize(
                 movingMask, movingMask, cv::Size(), ms, ms, cv::INTER_AREA);
@@ -133,6 +142,7 @@ auto LandmarkDetector::compute() -> std::vector<LandmarkPair>
 
     // Detect + match in original images
     if (enhanceMode_ == None or enhanceMode_ == OriginalWithCLAHE) {
+        logger()->debug("Running feature detection on original images");
         auto [matches, fixedPts, movingPts] = DetectAndMatch(
             fixedImg, movingImg, fixedMask, movingMask, nnMatchRatio_);
         goodMatches.reserve(goodMatches.size() + matches.size());
@@ -147,11 +157,14 @@ auto LandmarkDetector::compute() -> std::vector<LandmarkPair>
 
     // Detect + match in equalized images
     if (enhanceMode_ == CLAHE or enhanceMode_ == OriginalWithCLAHE) {
+        logger()->debug("Running feature detection on enhanced images");
         auto s = static_cast<int>(8.F * ms / fs);
+        logger()->debug("Fixed CLAHE grid size: {}x{}", s, s);
         auto clahe = cv::createCLAHE(40., {s, s});
         clahe->apply(fixedImg, fixedImg);
 
         s = static_cast<int>(8.F * fs / ms);
+        logger()->debug("Moving CLAHE grid size: {}x{}", s, s);
         clahe->setTilesGridSize({s, s});
         clahe->apply(movingImg, movingImg);
         auto [matches, fixedPts, movingPts] = DetectAndMatch(
@@ -167,6 +180,7 @@ auto LandmarkDetector::compute() -> std::vector<LandmarkPair>
     }
 
     // Use RANSAC to filter matches further
+    logger()->debug("Filtering with RANSAC");
     cv::Mat mask;
     cv::estimateAffinePartial2D(moving, fixed, mask, cv::RANSAC, 1.);
 
@@ -192,10 +206,10 @@ auto LandmarkDetector::compute() -> std::vector<LandmarkPair>
 
         // From moving -> fixed
         else if (m.imgIdx != 0) {
-            std::cerr << "Warning: Unexpected image match index: ";
-            std::cerr << m.imgIdx << std::endl;
+            logger()->warn("Unexpected image match index: {}", m.imgIdx);
         }
     }
+    logger()->debug("{} inlier matches", output_.size());
 
     return output_;
 }

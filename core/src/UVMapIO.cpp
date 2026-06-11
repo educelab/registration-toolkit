@@ -85,7 +85,7 @@ auto rt::ReadUVMap(const fs::path& path) -> rt::UVMap
     std::string line;
     while (std::getline(ifs, line)) {
         line = trim(line);
-        auto strs = split(line, ':');
+        auto strs = split(line, ":");
         std::transform(
             std::begin(strs), std::end(strs), std::begin(strs), &trim);
 

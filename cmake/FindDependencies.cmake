@@ -41,6 +41,12 @@ endif()
 find_package(TIFF REQUIRED)
 
 ### smgl ###
+find_package(nlohmann_json 3.9.1 QUIET)
+if(nlohmann_json_FOUND)
+    option(RT_BUILD_JSON "Build JSON library from source" off)
+else()
+    option(RT_BUILD_JSON "Build JSON library from source" on)
+endif()
 include(Buildsmgl)
 
 ### bvh ###
@@ -48,6 +54,12 @@ include(Buildbvh)
 
 ### libcore ###
 include(Buildlibcore)
+
+### OpenABF ###
+include(BuildOpenABF)
+
+### spdlog ###
+find_package(spdlog 1.9.0 CONFIG REQUIRED)
 
 ############
 # Optional #

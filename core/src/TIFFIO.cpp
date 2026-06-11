@@ -82,7 +82,7 @@ auto io::ReadRawTIFF(const fs::path& path, int offset) -> cv::Mat
 
     // Apply offset to first strip
     if (offset != 0) {
-        std::uint32_t* offsets{nullptr};
+        std::uint64_t* offsets{nullptr};
         TIFFGetField(tif, TIFFTAG_STRIPOFFSETS, &offsets);
         offsets[0] += offset;
         TIFFSetField(tif, TIFFTAG_STRIPOFFSETS, offsets);

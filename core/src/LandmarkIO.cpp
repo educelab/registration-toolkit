@@ -180,7 +180,7 @@ auto rt::ReadLandmarkContainer(const fs::path& path) -> LandmarkContainer
 
         // Tokenize the line
         line = trim(line);
-        auto strs = split(line, ':');
+        auto strs = split(line, ":");
         std::transform(strs.begin(), strs.end(), strs.begin(), &trim);
 
         // Filetype

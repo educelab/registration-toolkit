@@ -1,5 +1,7 @@
 #include "rt/graph/LandmarkIO.hpp"
 
+#include "rt/Logging.hpp"
+
 namespace rtg = rt::graph;
 namespace fs = rt::filesystem;
 
@@ -9,7 +11,7 @@ rtg::LandmarkReaderNode::LandmarkReaderNode()
     registerOutputPort("fixedLandmarks", fixedLandmarks);
     registerOutputPort("movingLandmarks", movingLandmarks);
     compute = [this]() {
-        std::cout << "Loading landmarks from file..." << std::endl;
+        rt::logger()->info("Loading landmarks from file: {}", path_.string());
         reader_.setLandmarksPath(path_);
         reader_.read();
         fixed_ = reader_.getFixedLandmarks();
@@ -35,7 +37,7 @@ rtg::LandmarkWriterNode::LandmarkWriterNode()
     registerInputPort("fixed", fixed);
     registerInputPort("moving", moving);
     compute = [this]() {
-        std::cout << "Writing landmarks to file..." << std::endl;
+        rt::logger()->info("Writing landmarks to file: {}", path_.string());
         writer_.setPath(path_);
         writer_.setFixedLandmarks(fixed_);
         writer_.setMovingLandmarks(moving_);

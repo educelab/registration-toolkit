@@ -9,11 +9,11 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-# Look for external dependencies.
-include(FindDependencies)
-
 # Some helpful constants to be used in subprojects.
 include(Constants)
+
+# Look for external dependencies.
+include(FindDependencies)
 
 # XXX Hack to get ninja output colorized for all source files.
 if (CMAKE_GENERATOR MATCHES "Ninja")
@@ -29,15 +29,15 @@ add_subdirectory(graph)
 
 ## Core Apps ##
 option(RT_BUILD_APPS "Compile core programs" on)
-CMAKE_DEPENDENT_OPTION(RT_INSTALL_APPS "Install core programs" on "RT_BUILD_APPS" off)
+cmake_dependent_option(RT_INSTALL_APPS "Install core programs" on "RT_BUILD_APPS" off)
 if (RT_BUILD_APPS)
     add_subdirectory(apps)
 endif()
 
 ## Documentation
 find_package(Doxygen OPTIONAL_COMPONENTS dot)
-CMAKE_DEPENDENT_OPTION(RT_BUILD_DOCS "Build Doxygen documentation" on "DOXYGEN_FOUND" off)
-CMAKE_DEPENDENT_OPTION(RT_INSTALL_DOCS "Install documentation" off "RT_BUILD_DOCS" off)
+cmake_dependent_option(RT_BUILD_DOCS "Build Doxygen documentation" on "DOXYGEN_FOUND" off)
+cmake_dependent_option(RT_INSTALL_DOCS "Install documentation" off "RT_BUILD_DOCS" off)
 if(RT_BUILD_DOCS)
     add_subdirectory(docs)
 endif()

@@ -11,6 +11,7 @@
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
 #include "rt/io/FileExtensionFilter.hpp"
+#include "rt/Logging.hpp"
 
 using namespace rt;
 using namespace rt::graph;
@@ -35,7 +36,9 @@ auto main(int argc, char* argv[]) -> int
             "Output file path for the registered moving file")
         ("output-tfm,t", po::value<std::string>(),
             "Output file path for the generated transform file")
-        ("report-metrics", "Outputs the metric values from the deformable and affine");
+        ("report-metrics", "Outputs the metric values from the deformable and affine")
+        ("log-level", po::value<std::string>()->default_value("info"),
+            "Log level: debug, info, warning, error, critical, off");
 
     po::options_description graphOptions("Render Graph Options");
     graphOptions.add_options()
@@ -67,6 +70,7 @@ auto main(int argc, char* argv[]) -> int
         ("landmark-match-ratio", po::value<float>()->default_value(0.7F),
             "Matching ratio for automatically detected features. Smaller "
             "values represent closer matches.")
+        ("landmark-max-size", po::value<int>(), "Max image size when computing landmarks")
         ("landmark-enhancement", po::value<std::string>()->default_value("original-clahe"),
             "Image enhancement applied prior to landmark detection: "
             "'none', 'clahe', 'original-clahe'")
@@ -104,12 +108,13 @@ auto main(int argc, char* argv[]) -> int
     try {
         po::notify(parsed);
     } catch (po::error& e) {
-        std::cerr << "ERROR: " << e.what() << std::endl;
+        rt::logger()->error("{}", e.what());
         return EXIT_FAILURE;
     }
 
     // Silence OpenCV logging
     cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
+    rt::set_log_level(parsed["log-level"].as<std::string>());
 
     fs::path fixedPath = parsed["fixed"].as<std::string>();
     fs::path movingPath = parsed["moving"].as<std::string>();
@@ -137,9 +142,7 @@ auto main(int argc, char* argv[]) -> int
 
     // Validate paths
     if (is2Dto3D and not IsFormat(outputPath, {"obj"})) {
-        std::cerr << "ERROR: Registering to a 3D mesh, but output file (";
-        std::cerr << outputPath.extension().string() << ") ";
-        std::cerr << "is not a supported mesh format.\n";
+        rt::logger()->error("Registering to a 3D mesh, but requested format {} is not a supported mesh format.", outputPath.extension().string());
         return EXIT_FAILURE;
     }
 
@@ -188,10 +191,10 @@ auto main(int argc, char* argv[]) -> int
             } else if (enhanceStr == "original-clahe") {
                 mode = LandmarkDetector::OriginalWithCLAHE;
             } else {
-                std::cerr << "WARNING: ";
-                std::cerr << "Unrecognized landmark enhancement mode: ";
-                std::cerr << "'" << enhanceStr << "'. ";
-                std::cerr << "Defaulting to 'original-clahe'.\n";
+                rt::logger()->warn("Unrecognized landmark enhancement mode: '{}'. Defaulting to 'original-clahe'.", enhanceStr);
+            }
+            if(parsed.count("landmark-max-size") > 0) {
+                genLdm->maxImageDim = parsed["landmark-max-size"].as<int>();
             }
             genLdm->enhancementMode = mode;
 

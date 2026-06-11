@@ -2,6 +2,7 @@
 
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/UVMapIO.hpp"
+#include "rt/Logging.hpp"
 
 using namespace rt;
 
@@ -57,7 +58,7 @@ rtg::ReorderTextureNode::ReorderTextureNode()
     registerOutputPort("depthMapOut", depthMapOut);
 
     compute = [this]() {
-        std::cout << "Reordering texture image...\n";
+        rt::logger()->info("Reordering texture image");
         outImg_ = reorder_.compute();
         outUV_ = reorder_.getUVMap();
     };

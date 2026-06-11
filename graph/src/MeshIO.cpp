@@ -2,6 +2,7 @@
 
 #include "rt/io/OBJReader.hpp"
 #include "rt/io/OBJWriter.hpp"
+#include "rt/Logging.hpp"
 
 using namespace rt;
 
@@ -16,7 +17,7 @@ rtg::MeshReadNode::MeshReadNode()
     registerOutputPort("imagePath", imagePath);
     registerOutputPort("uvMap", uvMap);
     compute = [this]() {
-        std::cout << "Reading mesh..." << std::endl;
+        rt::logger()->info("Reading mesh: {}", path_.string());
         io::OBJReader r;
         r.setPath(path_);
         mesh_ = r.read();
@@ -51,7 +52,7 @@ rtg::MeshWriteNode::MeshWriteNode()
     registerInputPort("imageSource", imageSource);
     registerInputPort("uvMap", uvMap);
     compute = [this]() {
-        std::cout << "Writing mesh..." << std::endl;
+        rt::logger()->info("Writing mesh: {}", path_.string());
         writer_.setPath(path_);
         writer_.write();
     };
