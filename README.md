@@ -54,10 +54,14 @@ git clone https://gitlab.com/educelab/registration-toolkit.git
 cd registration-toolkit/
 
 # Configure and build
-cmake -S . -B build/
+cmake -S . -B build/ -DCMAKE_BUILD_TYPE=Release
 cmake --build build/
 cmake --install build/  # optional
 ```
+
+**Note:** `-DCMAKE_BUILD_TYPE=Release` is strongly recommended. Mesh
+flattening (e.g. `rt_dewarp`, `rt_seam_flattening`) is dramatically slower
+in debug builds.
 
 The CMake project provides a number of flags for configuring the build:
 * `RT_BUILD_APPS`: Compile the utility applications. (Default: ON)
