@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24..3.29 FATAL_ERROR)
-project("registration-toolkit" VERSION 1.7.0)
+project("registration-toolkit" VERSION 1.8.0)
 
 # Modules
 include(FetchContent)

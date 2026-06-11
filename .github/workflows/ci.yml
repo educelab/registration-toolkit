@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  ubuntu-24_04:
+    name: test:ubuntu:24.04
+    runs-on: ubuntu-24.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get -y update
+          sudo apt-get install -y build-essential cmake curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev
+      - name: Configure
+        run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build-$BUILD_TYPE
+      - name: Test
+        run: ctest -V --test-dir build-$BUILD_TYPE
+
+  ubuntu-22_04:
+    name: test:ubuntu:22.04
+    runs-on: ubuntu-22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get -y update
+          sudo apt-get install -y build-essential curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev
+      - name: Install newer CMake
+        run: |
+          curl -OL https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.sh
+          chmod +x cmake-3.28.3-linux-x86_64.sh
+          sudo ./cmake-3.28.3-linux-x86_64.sh --skip-license --prefix=/usr/local --exclude-subdir
+      - name: Configure
+        run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build-$BUILD_TYPE
+      - name: Test
+        run: ctest -V --test-dir build-$BUILD_TYPE
+
+  macos:
+    name: test:macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew bundle --file=Brewfile
+      - name: Install ninja
+        run: brew install ninja
+      - name: Configure
+        run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
+      - name: Build
+        run: cmake --build build-$BUILD_TYPE
+      - name: Test
+        run: ctest -V --test-dir build-$BUILD_TYPE
