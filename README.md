@@ -5,6 +5,15 @@ Supports image-to-image and image-to-mesh registration across a range of image
 depths and types. Fully supports gray, gray+alpha, RGB, and RGBA images in 8, 
 16, and 32 bits-per-channel.
 
+## Installation
+### Homebrew (macOS and Linux)
+Pre-built binaries are available via our Homebrew tap:
+```shell
+brew install educelab/code/registration-toolkit
+```
+
+To build from source, see [Build and Install](#build-and-install) below.
+
 ## Requirements
 * CMake 3.24+
 * C++20 compiler
