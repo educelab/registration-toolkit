@@ -15,6 +15,7 @@
 #include "rt/Version.hpp"
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
+#include "rt/io/FileExtensionFilter.hpp"
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
@@ -134,7 +135,9 @@ auto main(int argc, char* argv[]) -> int
         ("input-mesh,i", po::value<std::string>()->required(),
              "Path to input OBJ with unordered texture (i.e. multicharts)")
         ("output-mesh,o", po::value<std::string>()->required(),
-             "Path to output OBJ with ordered texture")
+             "Output path. An OBJ extension writes the mesh with its ordered "
+             "texture; an image extension (jpg, png, tif) writes just the "
+             "ordered texture image.")
         ("depth-map", po::value<std::string>(), "Path to output depth map image")
         ("position-map", po::value<std::string>(),
              "Path to output 3D position map image (CV_32FC3; per-pixel XYZ)")
@@ -282,12 +285,19 @@ auto main(int argc, char* argv[]) -> int
         reorder->projectionParams = *projParams;
     }
 
-    // Write to file
-    auto writer = graph.insertNode<MeshWriteNode>();
-    writer->path = outputPath;
-    writer->mesh = reader->mesh;
-    writer->uvMap = reorder->uvMapOut;
-    writer->image = reorder->imageOut;
+    // Write to file: an image-format output gets just the reordered texture
+    // image; any other extension is treated as a textured mesh.
+    if (FileExtensionFilter(outputPath, {"jpg", "jpeg", "png", "tiff", "tif"})) {
+        auto writer = graph.insertNode<WriteImageNode>();
+        writer->path = outputPath;
+        writer->image = reorder->imageOut;
+    } else {
+        auto writer = graph.insertNode<MeshWriteNode>();
+        writer->path = outputPath;
+        writer->mesh = reader->mesh;
+        writer->uvMap = reorder->uvMapOut;
+        writer->image = reorder->imageOut;
+    }
 
     // Write depth map
     if (parsed.count("depth-map") > 0) {
