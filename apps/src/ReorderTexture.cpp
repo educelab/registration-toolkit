@@ -134,7 +134,7 @@ auto main(int argc, char* argv[]) -> int
         ("help,h", "Show this message")
         ("input-mesh,i", po::value<std::string>()->required(),
              "Path to input OBJ with unordered texture (i.e. multicharts)")
-        ("output-mesh,o", po::value<std::string>()->required(),
+        ("output-file,o", po::value<std::string>()->required(),
              "Output path. An OBJ extension writes the mesh with its ordered "
              "texture; an image extension (jpg, png, tif) writes just the "
              "ordered texture image.")
@@ -212,7 +212,7 @@ auto main(int argc, char* argv[]) -> int
     cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
 
     fs::path inputPath = parsed["input-mesh"].as<std::string>();
-    fs::path outputPath = parsed["output-mesh"].as<std::string>();
+    fs::path outputPath = parsed["output-file"].as<std::string>();
 
     // Get parameters
     auto originStr = to_lower_copy(parsed["sampling-origin"].as<std::string>());
