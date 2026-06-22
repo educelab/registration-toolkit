@@ -219,6 +219,14 @@ private:
     /** Resample the input image using a pinhole camera projection */
     void create_texture_camera_();
 
+    /**
+     * Bilinearly sample the input texture color for a ray hit on face @p cellId
+     * with barycentric intersection (@p interU, @p interV). Assumes the input
+     * texture is non-empty.
+     */
+    [[nodiscard]] auto sample_surface_color_(
+        std::size_t cellId, double interU, double interV) const -> cv::Vec3b;
+
     /** Input mesh */
     ITKMesh::Pointer inputMesh_;
     /** Input UV map */

@@ -465,6 +465,9 @@ auto AutoCamera(vtkPolyData* mesh, double sampleRate)
 
 // Generate a UV map by projecting each vertex through the pinhole camera.
 // Vertices behind the camera get sentinel (-1, -1) coordinates.
+// Limitation: no near-plane clipping. A triangle that straddles the camera
+// plane (some vertices in front, some behind) keeps its behind-camera vertices
+// at the sentinel UV, so that face will texture-map incorrectly.
 auto CreateProjectiveUVMap(
     vtkPolyData* mesh, const ReorderUnorganizedTexture::ProjectionParams& cam)
     -> UVMap
@@ -798,6 +801,7 @@ void ReorderUnorganizedTexture::create_texture_()
             break;
     }
 
+    const bool haveTexture = not inputTexture_.empty();
     for (auto [v, u] : range2D(rows, cols)) {
         // Sample through the pixel center to avoid a half-pixel bias
         auto uOffset = (u + 0.5) * sampleRate * normedX;
@@ -830,32 +834,13 @@ void ReorderUnorganizedTexture::create_texture_()
             static_cast<float>(pos[0]), static_cast<float>(pos[1]),
             static_cast<float>(pos[2]));
 
-        // Cell info
-        auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
-
-        // Get the 2D and 3D pts
-        std::vector<cv::Vec3d> uvPts;
-        for (const auto& uv : inputUV_.getFaceUVs(cellId)) {
-            uvPts.emplace_back(uv[0], uv[1], 0.0);
+        // Sample the surface color into the output texture
+        if (haveTexture) {
+            const auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
+            const auto inter = hit.value().intersection;
+            outputTexture_.at<cv::Vec3b>(v, u) =
+                sample_surface_color_(cellId, inter.u, inter.v);
         }
-
-        // Intersection point
-        auto inter = hit.value().intersection;
-        cv::Vec3d bCoord{inter.u, inter.v, 1 - inter.u - inter.v};
-
-        // Get the UV position of the intersection point
-        // Inexplicably, bvh barycentric coordinates are relative to the 2nd
-        // pt?
-        auto cPoint = ::BaryToXYZ(bCoord, uvPts[1], uvPts[2], uvPts[0]);
-
-        // Convert the UV position to pixel coordinates (in orig image)
-        auto x = static_cast<float>(cPoint[0] * (inputTexture_.cols - 1));
-        auto y = static_cast<float>(cPoint[1] * (inputTexture_.rows - 1));
-
-        // Bilinear interpolate color and assign to output
-        cv::Mat subRect;
-        cv::getRectSubPix(inputTexture_, {1, 1}, {x, y}, subRect);
-        outputTexture_.at<cv::Vec3b>(v, u) = subRect.at<cv::Vec3b>(0, 0);
     }
 
     outputUV_ = CreateUVMap(mesh, origin, xAxis, yAxis);
@@ -913,6 +898,7 @@ void ReorderUnorganizedTexture::create_texture_camera_()
     const auto diag = cv::norm(bbMax - bbMin);
     const auto far = (cv::norm(camCenter - 0.5 * (bbMin + bbMax)) + diag) * 2.0;
 
+    const bool haveTexture = not inputTexture_.empty();
     for (auto [v, u] : range2D(rows, cols)) {
         // Pinhole ray through the pixel center: dir = R^-1 * K^-1 * [u, v, 1]
         const cv::Vec3d dCam(
@@ -942,24 +928,39 @@ void ReorderUnorganizedTexture::create_texture_camera_()
             static_cast<float>(pos[0]), static_cast<float>(pos[1]),
             static_cast<float>(pos[2]));
 
-        auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
-        std::vector<cv::Vec3d> uvPts;
-        for (const auto& uv : inputUV_.getFaceUVs(cellId)) {
-            uvPts.emplace_back(uv[0], uv[1], 0.0);
+        // Sample the surface color into the output texture
+        if (haveTexture) {
+            const auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
+            const auto inter = hit.value().intersection;
+            outputTexture_.at<cv::Vec3b>(v, u) =
+                sample_surface_color_(cellId, inter.u, inter.v);
         }
-
-        auto inter = hit.value().intersection;
-        cv::Vec3d bCoord{inter.u, inter.v, 1 - inter.u - inter.v};
-        // bvh barycentric coordinates are relative to the 2nd vertex
-        auto cPoint = ::BaryToXYZ(bCoord, uvPts[1], uvPts[2], uvPts[0]);
-
-        auto x = static_cast<float>(cPoint[0] * (inputTexture_.cols - 1));
-        auto y = static_cast<float>(cPoint[1] * (inputTexture_.rows - 1));
-
-        cv::Mat subRect;
-        cv::getRectSubPix(inputTexture_, {1, 1}, {x, y}, subRect);
-        outputTexture_.at<cv::Vec3b>(v, u) = subRect.at<cv::Vec3b>(0, 0);
     }
 
     outputUV_ = ::CreateProjectiveUVMap(mesh, cam);
+}
+
+auto ReorderUnorganizedTexture::sample_surface_color_(
+    const std::size_t cellId, const double interU, const double interV) const
+    -> cv::Vec3b
+{
+    // Get the face's UV coordinates
+    std::vector<cv::Vec3d> uvPts;
+    for (const auto& uv : inputUV_.getFaceUVs(cellId)) {
+        uvPts.emplace_back(uv[0], uv[1], 0.0);
+    }
+
+    // Get the UV position of the intersection point.
+    // Inexplicably, bvh barycentric coordinates are relative to the 2nd pt.
+    const cv::Vec3d bCoord{interU, interV, 1 - interU - interV};
+    const auto cPoint = ::BaryToXYZ(bCoord, uvPts[1], uvPts[2], uvPts[0]);
+
+    // Convert the UV position to pixel coordinates (in orig image)
+    const auto x = static_cast<float>(cPoint[0] * (inputTexture_.cols - 1));
+    const auto y = static_cast<float>(cPoint[1] * (inputTexture_.rows - 1));
+
+    // Bilinear interpolate color
+    cv::Mat subRect;
+    cv::getRectSubPix(inputTexture_, {1, 1}, {x, y}, subRect);
+    return subRect.at<cv::Vec3b>(0, 0);
 }
