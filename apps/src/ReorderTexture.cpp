@@ -122,6 +122,10 @@ static auto ParseCameraFile(const fs::path& path)
             "Camera file must define fx, fy, cx, cy, width, height, and pose");
         return std::nullopt;
     }
+    if (const auto err = ValidateProjectionParams(p)) {
+        rt::logger()->error("Camera file: {}", *err);
+        return std::nullopt;
+    }
     return p;
 }
 

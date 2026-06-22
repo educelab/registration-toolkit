@@ -598,6 +598,46 @@ void ReorderUnorganizedTexture::clearProjectionParams()
     projParamsSet_ = false;
 }
 
+auto rt::ValidateProjectionParams(
+    const ReorderUnorganizedTexture::ProjectionParams& p)
+    -> std::optional<std::string>
+{
+    if (p.width <= 0 or p.height <= 0) {
+        return "image size (width, height) must be positive";
+    }
+    if (not std::isfinite(p.fx) or not std::isfinite(p.fy) or p.fx <= 0.0 or
+        p.fy <= 0.0) {
+        return "focal lengths (fx, fy) must be positive and finite";
+    }
+    if (not std::isfinite(p.cx) or not std::isfinite(p.cy)) {
+        return "principal point (cx, cy) must be finite";
+    }
+
+    // Rotation block of the world-to-camera extrinsics must be a proper
+    // rotation: orthonormal (R*R^T == I) and right-handed (det(R) == +1).
+    cv::Matx33d r;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            r(i, j) = p.extrinsics(i, j);
+        }
+    }
+    constexpr double eps{1e-6};
+    const cv::Matx33d rrt = r * r.t();
+    const cv::Matx33d eye = cv::Matx33d::eye();
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            if (std::abs(rrt(i, j) - eye(i, j)) > eps) {
+                return "extrinsics rotation block must be orthonormal";
+            }
+        }
+    }
+    if (std::abs(cv::determinant(r) - 1.0) > eps) {
+        return "extrinsics rotation block must be right-handed (det = +1)";
+    }
+
+    return std::nullopt;
+}
+
 auto ReorderUnorganizedTexture::getUVMap() -> UVMap { return outputUV_; }
 
 auto ReorderUnorganizedTexture::getTextureMat() -> cv::Mat
@@ -835,8 +875,8 @@ void ReorderUnorganizedTexture::create_texture_camera_()
     }
     const ProjectionParams cam =
         projParamsSet_ ? projParams_ : ::AutoCamera(mesh, texDensity);
-    if (cam.width <= 0 or cam.height <= 0) {
-        throw std::runtime_error("Camera projection requires positive image size");
+    if (const auto err = rt::ValidateProjectionParams(cam)) {
+        throw std::runtime_error("Camera projection: " + *err);
     }
 
     // Build the BVH over the world-frame mesh

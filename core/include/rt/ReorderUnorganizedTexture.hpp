@@ -254,4 +254,16 @@ private:
     /** Output per-pixel 3D position map */
     cv::Mat outputPositionMap_;
 };
+
+/**
+ * @brief Validate pinhole camera parameters
+ *
+ * Returns a message describing the first problem found, or std::nullopt if
+ * @p params describe a usable pinhole camera: positive, finite focal lengths
+ * and image size; a finite principal point; and an orthonormal, right-handed
+ * rotation block in the world-to-camera extrinsics.
+ */
+[[nodiscard]] auto ValidateProjectionParams(
+    const ReorderUnorganizedTexture::ProjectionParams& params)
+    -> std::optional<std::string>;
 }  // namespace rt

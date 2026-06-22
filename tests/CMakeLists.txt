@@ -13,6 +13,7 @@ set(tests
     src/TestITKOCVBridge.cpp
     src/TestUVMapIO.cpp
     src/TestLandmarkIO.cpp
+    src/TestReorderUnorganizedTexture.cpp
 )
 
 foreach(src ${tests})
