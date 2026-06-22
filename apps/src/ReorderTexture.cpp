@@ -142,9 +142,13 @@ auto main(int argc, char* argv[]) -> int
              "Output path. An OBJ extension writes the mesh with its ordered "
              "texture; an image extension (jpg, png, tif) writes just the "
              "ordered texture image.")
-        ("depth-map", po::value<std::string>(), "Path to output depth map image")
+        ("depth-map", po::value<std::string>(),
+             "Path to output depth map image. Values are floating-point, so a "
+             "float-capable format (e.g. .tif) is recommended.")
         ("position-map", po::value<std::string>(),
-             "Path to output 3D position map image (CV_32FC3; per-pixel XYZ)")
+             "Path to output 3D position map image (CV_32FC3; per-pixel XYZ). "
+             "Values are floating-point, so a float-capable format (e.g. .tif) "
+             "is recommended.")
         ("sampling-origin", po::value<std::string>()->default_value("tl"),
              "Origins: tl, tr, bl, br")
         ("sampling-mode,m", po::value<std::string>()->default_value("auto"),
@@ -183,7 +187,7 @@ auto main(int argc, char* argv[]) -> int
              "  pose <16 values>\n"
              "'pose' is the world-to-camera 4x4 matrix in row-major order "
              "(OpenCV convention x_cam = R*X + t); its 16 values may span "
-             "multiple lines.");
+             "multiple lines. Ignored unless --projection camera.");
 
     po::options_description graphOptions("Render Graph Options");
     graphOptions.add_options()
@@ -249,6 +253,9 @@ auto main(int argc, char* argv[]) -> int
             rt::logger()->info(
                 "No explicit camera given; auto-deriving camera from mesh");
         }
+    } else if (parsed.count("camera-file") > 0) {
+        rt::logger()->warn(
+            "--camera-file is ignored unless --projection camera");
     }
 
     ///// Start render graph /////
