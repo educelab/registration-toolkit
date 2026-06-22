@@ -46,6 +46,7 @@ void to_json(Json& j, const ProjectionParams& p)
 {
     j = Json{{"fx", p.fx},     {"fy", p.fy},         {"cx", p.cx},
              {"cy", p.cy},     {"width", p.width},   {"height", p.height}};
+    // cv::Matx44d::val is a 16-element, row-major buffer
     std::array<double, 16> ext{};
     std::copy(p.extrinsics.val, p.extrinsics.val + 16, ext.begin());
     j["extrinsics"] = ext;
@@ -149,13 +150,18 @@ void rtg::ReorderTextureNode::deserialize_(
     reorder_.setSampleRate(meta["sampleRate"].get<double>());
     reorder_.setSampleDim(meta["sampleDim"].get<std::size_t>());
     reorder_.setUseFirstIntersection(meta["useFirstIntersection"].get<bool>());
-    if (meta.contains("projectionMode")) {
-        reorder_.setProjectionMode(meta["projectionMode"].get<ProjectionMode>());
-    }
+    // Restore explicit params (if any) before the mode so the serialized mode
+    // is authoritative; absent params means the auto-derived camera.
     if (meta.contains("projectionParams")) {
         reorder_.setProjectionParams(
             meta["projectionParams"].get<ProjectionParams>());
         haveProjParams_ = true;
+    } else {
+        reorder_.clearProjectionParams();
+        haveProjParams_ = false;
+    }
+    if (meta.contains("projectionMode")) {
+        reorder_.setProjectionMode(meta["projectionMode"].get<ProjectionMode>());
     }
     if (meta.contains("uvMap")) {
         const auto file = meta["uvMap"].get<std::string>();

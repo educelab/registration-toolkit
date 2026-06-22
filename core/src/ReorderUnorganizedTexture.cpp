@@ -585,12 +585,17 @@ void ReorderUnorganizedTexture::setProjectionParams(const ProjectionParams& para
 {
     projParams_ = params;
     projParamsSet_ = true;
-    projectionMode_ = ProjectionMode::Camera;
 }
 
 auto ReorderUnorganizedTexture::projectionParams() const -> ProjectionParams
 {
     return projParams_;
+}
+
+void ReorderUnorganizedTexture::clearProjectionParams()
+{
+    projParams_ = {};
+    projParamsSet_ = false;
 }
 
 auto ReorderUnorganizedTexture::getUVMap() -> UVMap { return outputUV_; }

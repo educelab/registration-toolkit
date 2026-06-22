@@ -2,6 +2,9 @@
 
 /** @file */
 
+#include <optional>
+#include <string>
+
 #include <opencv2/core.hpp>
 
 #include "rt/types/ITKMesh.hpp"
@@ -161,13 +164,23 @@ public:
      * @brief Set explicit pinhole intrinsics/extrinsics for
      * ProjectionMode::Camera
      *
-     * Also sets the projection mode to ProjectionMode::Camera. Overrides the
-     * auto-derived camera.
+     * Stores an explicit camera that overrides the auto-derived one when
+     * sampling in ProjectionMode::Camera. Does not change the projection mode;
+     * use setProjectionMode() to enable camera sampling. Call
+     * clearProjectionParams() to revert to the auto-derived camera.
      */
     void setProjectionParams(const ProjectionParams& params);
 
     /** @copydoc setProjectionParams() */
     [[nodiscard]] auto projectionParams() const -> ProjectionParams;
+
+    /**
+     * @brief Discard any explicit pinhole parameters
+     *
+     * After this call, ProjectionMode::Camera sampling reverts to the
+     * auto-derived camera. Does not change the projection mode.
+     */
+    void clearProjectionParams();
 
     /** @brief Generate the new texture image and UV map */
     auto compute() -> cv::Mat;
