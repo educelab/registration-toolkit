@@ -22,6 +22,10 @@ public:
     using SamplingOrigin = ReorderUnorganizedTexture::SamplingOrigin;
     /** @see ReorderUnorganizedTexture::SamplingMode */
     using SamplingMode = ReorderUnorganizedTexture::SamplingMode;
+    /** @see ReorderUnorganizedTexture::ProjectionMode */
+    using ProjectionMode = ReorderUnorganizedTexture::ProjectionMode;
+    /** @see ReorderUnorganizedTexture::ProjectionParams */
+    using ProjectionParams = ReorderUnorganizedTexture::ProjectionParams;
 
     /** Default constructor */
     ReorderTextureNode();
@@ -44,6 +48,10 @@ public:
     smgl::InputPort<std::size_t> sampleDim;
     /** @copydoc ReorderUnorganizedTexture::setUseFirstIntersection() */
     smgl::InputPort<bool> useFirstIntersection;
+    /** @copydoc ReorderUnorganizedTexture::setProjectionMode() */
+    smgl::InputPort<ProjectionMode> projectionMode;
+    /** @copydoc ReorderUnorganizedTexture::setProjectionParams() */
+    smgl::InputPort<ProjectionParams> projectionParams;
     /**@}*/
 
     /** @name Output Ports */
@@ -54,11 +62,15 @@ public:
     smgl::OutputPort<UVMap> uvMapOut;
     /** @brief Output depth map port */
     smgl::OutputPort<cv::Mat> depthMapOut;
+    /** @brief Output 3D position map port */
+    smgl::OutputPort<cv::Mat> positionMapOut;
     /**@}*/
 
 private:
     /** Computation class */
     ReorderUnorganizedTexture reorder_;
+    /** Whether explicit projection params were posted to projectionParams */
+    bool haveProjParams_{false};
     /** Output texture image */
     cv::Mat outImg_;
     /** Output UV map */

@@ -132,7 +132,8 @@ auto main(int argc, const char* argv[]) -> int
     reorder.setMesh(flat);
     reorder.setUVMap(reader.getUVMap());
     reorder.setTextureMat(reader.getTextureMat());
-    reorder.setSamplingMode(ReorderUnorganizedTexture::SamplingMode::AutoUV);
+    reorder.setSamplingMode(ReorderUnorganizedTexture::SamplingMode::OutputWidth);
+    reorder.setSampleDim(8192);
     const auto texture = reorder.compute();
 
     if (FileExtensionFilter(outPath, {"jpg", "jpeg", "png", "tiff", "tif"})) {

@@ -1,7 +1,10 @@
 #include "rt/ReorderUnorganizedTexture.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
+#include <stdexcept>
 
 #include <bvh/v2/bvh.h>
 #include <bvh/v2/vec.h>
@@ -338,6 +341,172 @@ auto IntersectRay(Ray ray, const Bvh& bvh, const std::vector<PrecomputedTri>& tr
     return std::make_optional(hit);
 }
 
+// Build a BVH over the mesh's triangles. precompTris is reordered to match
+// bvh.prim_ids, matching the traversal in IntersectRay().
+struct BVHData {
+    Bvh bvh;
+    std::vector<PrecomputedTri> precompTris;
+};
+
+auto BuildBVH(vtkPolyData* mesh) -> BVHData
+{
+    std::vector<Triangle> tris;
+    auto ptIDs = vtkSmartPointer<vtkIdList>::New();
+    Vector3 a, b, c;
+    for (auto cellIdx : range(mesh->GetNumberOfCells())) {
+        mesh->GetCellPoints(cellIdx, ptIDs);
+        mesh->GetPoint(ptIDs->GetId(0), a.values);
+        mesh->GetPoint(ptIDs->GetId(1), b.values);
+        mesh->GetPoint(ptIDs->GetId(2), c.values);
+        tris.emplace_back(a, b, c);
+    }
+
+    bvh::v2::ThreadPool threadPool;
+    bvh::v2::ParallelExecutor executor(threadPool);
+
+    std::vector<BBox> bboxes(tris.size());
+    std::vector<Vector3> centers(tris.size());
+    executor.for_each(0, tris.size(), [&](const auto begin, const auto end) {
+        for (auto i = begin; i < end; ++i) {
+            bboxes[i] = tris[i].get_bbox();
+            centers[i] = tris[i].get_center();
+        }
+    });
+
+    bvh::v2::DefaultBuilder<Node>::Config config;
+    config.quality = bvh::v2::DefaultBuilder<Node>::Quality::High;
+    auto bvh =
+        bvh::v2::DefaultBuilder<Node>::build(threadPool, bboxes, centers, config);
+
+    std::vector<PrecomputedTri> precompTris(tris.size());
+    executor.for_each(0, tris.size(), [&](const auto begin, const auto end) {
+        for (auto i = begin; i < end; ++i) {
+            auto j = bvh.prim_ids[i];
+            precompTris[i] = tris[j];
+        }
+    });
+
+    return BVHData{std::move(bvh), std::move(precompTris)};
+}
+
+// Derive a sensible pinhole camera that frames the (roughly planar) mesh,
+// looking along its shortest OBB axis at the centroid. @c sampleRate is the
+// target surface sampling in mesh units per pixel (e.g. the input texture's
+// pixel density); pass <= 0 to fall back to a fixed long-edge size.
+auto AutoCamera(vtkPolyData* mesh, double sampleRate)
+    -> ReorderUnorganizedTexture::ProjectionParams
+{
+    auto [origin, xAxis, yAxis, zAxis, size] = ComputeOBB(mesh);
+    const cv::Vec3d centroid = origin + 0.5 * (xAxis + yAxis + zAxis);
+    const auto ex = cv::norm(xAxis);
+    const auto ey = cv::norm(yAxis);
+    const cv::Vec3d nrm = cv::normalize(zAxis);  // shortest (thin) axis
+
+    // Place the camera off the surface for mild perspective
+    auto d = 1.5 * std::max(ex, ey);
+    if (d <= 0) {
+        d = 1.0;
+    }
+    const cv::Vec3d eye = centroid + nrm * d;
+
+    // Size the output to approximately preserve the input texture pixel
+    // density. At distance d a pixel subtends ~d/f mesh units on the surface,
+    // so f = d / sampleRate matches the texture density and the mesh spans
+    // ~extent / sampleRate pixels. Fall back to a fixed long edge when no
+    // usable density is available.
+    int width{0};
+    int height{0};
+    double f{0};
+    if (sampleRate > 0 and std::isfinite(sampleRate)) {
+        constexpr double margin = 1.05;
+        width =
+            std::max(1, static_cast<int>(std::ceil(ex / sampleRate * margin)));
+        height =
+            std::max(1, static_cast<int>(std::ceil(ey / sampleRate * margin)));
+        f = d / sampleRate;
+    } else {
+        constexpr int kMaxDim = 2048;
+        width = kMaxDim;
+        height = kMaxDim;
+        if (ex >= ey) {
+            height =
+                std::max(1, static_cast<int>(std::round(kMaxDim * ey / ex)));
+        } else {
+            width =
+                std::max(1, static_cast<int>(std::round(kMaxDim * ex / ey)));
+        }
+        f = std::min(width * d / (ex * 1.1), height * d / (ey * 1.1));
+    }
+
+    // Look-at, OpenCV convention (+Z forward into scene, +Y down)
+    const cv::Vec3d forward = cv::normalize(centroid - eye);
+    const cv::Vec3d worldUp = cv::normalize(yAxis);
+    const cv::Vec3d right = cv::normalize(forward.cross(worldUp));
+    const cv::Vec3d down = forward.cross(right);
+
+    ReorderUnorganizedTexture::ProjectionParams p;
+    p.fx = f;
+    p.fy = f;
+    p.cx = width / 2.0;
+    p.cy = height / 2.0;
+    p.width = width;
+    p.height = height;
+    const std::array<cv::Vec3d, 3> rows{right, down, forward};
+    const cv::Vec3d t{
+        -right.dot(eye), -down.dot(eye), -forward.dot(eye)};
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            p.extrinsics(i, j) = rows[i][j];
+        }
+        p.extrinsics(i, 3) = t[i];
+    }
+    return p;
+}
+
+// Generate a UV map by projecting each vertex through the pinhole camera.
+// Vertices behind the camera get sentinel (-1, -1) coordinates.
+auto CreateProjectiveUVMap(
+    vtkPolyData* mesh, const ReorderUnorganizedTexture::ProjectionParams& cam)
+    -> UVMap
+{
+    UVMap out;
+    cv::Matx33d R;
+    cv::Vec3d t;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            R(i, j) = cam.extrinsics(i, j);
+        }
+        t[i] = cam.extrinsics(i, 3);
+    }
+    const auto maxX = cam.width - 1.0;
+    const auto maxY = cam.height - 1.0;
+
+    cv::Vec3d p;
+    for (const auto ptID : range(mesh->GetNumberOfPoints())) {
+        mesh->GetPoint(ptID, p.val);
+        const cv::Vec3d pc = R * p + t;
+        if (pc[2] <= 0) {
+            out.addUV({-1.0, -1.0});
+            continue;
+        }
+        const auto px = cam.fx * pc[0] / pc[2] + cam.cx;
+        const auto py = cam.fy * pc[1] / pc[2] + cam.cy;
+        out.addUV({px / maxX, py / maxY});
+    }
+
+    const auto ptIDs = vtkSmartPointer<vtkIdList>::New();
+    UVMap::Face f;
+    for (const auto cellIdx : range(mesh->GetNumberOfCells())) {
+        mesh->GetCellPoints(cellIdx, ptIDs);
+        int idx{0};
+        for (const auto ptID : *ptIDs) {
+            f[idx++] = ptID;
+        }
+        out.addFace(cellIdx, f);
+    }
+    return out;
+}
+
 }  // namespace
 
 void ReorderUnorganizedTexture::setMesh(const ITKMesh::Pointer& mesh)
@@ -402,6 +571,28 @@ auto ReorderUnorganizedTexture::useFirstIntersection() const -> bool
     return useFirstIntersection_;
 }
 
+void ReorderUnorganizedTexture::setProjectionMode(const ProjectionMode m)
+{
+    projectionMode_ = m;
+}
+
+auto ReorderUnorganizedTexture::projectionMode() const -> ProjectionMode
+{
+    return projectionMode_;
+}
+
+void ReorderUnorganizedTexture::setProjectionParams(const ProjectionParams& params)
+{
+    projParams_ = params;
+    projParamsSet_ = true;
+    projectionMode_ = ProjectionMode::Camera;
+}
+
+auto ReorderUnorganizedTexture::projectionParams() const -> ProjectionParams
+{
+    return projParams_;
+}
+
 auto ReorderUnorganizedTexture::getUVMap() -> UVMap { return outputUV_; }
 
 auto ReorderUnorganizedTexture::getTextureMat() -> cv::Mat
@@ -414,10 +605,19 @@ auto ReorderUnorganizedTexture::getDepthMap() -> cv::Mat
     return outputDepthMap_;
 }
 
+auto ReorderUnorganizedTexture::getPositionMap() -> cv::Mat
+{
+    return outputPositionMap_;
+}
+
 // Compute the result
 auto ReorderUnorganizedTexture::compute() -> cv::Mat
 {
-    create_texture_();
+    if (projectionMode_ == ProjectionMode::Camera) {
+        create_texture_camera_();
+    } else {
+        create_texture_();
+    }
     return outputTexture_;
 }
 
@@ -475,46 +675,9 @@ void ReorderUnorganizedTexture::create_texture_()
     zAxis = {0., 0., bbox[5] - bbox[4]};
 
     // Create BVH for mesh
-    std::vector<Triangle> tris;
-    auto ptIDs = vtkSmartPointer<vtkIdList>::New();
-    Vector3 a, b, c;
-    for (auto cellIdx : range(mesh->GetNumberOfCells())) {
-        mesh->GetCellPoints(cellIdx, ptIDs);
-
-        mesh->GetPoint(ptIDs->GetId(0), a.values);
-        mesh->GetPoint(ptIDs->GetId(1), b.values);
-        mesh->GetPoint(ptIDs->GetId(2), c.values);
-
-        // Add the face to the BVH tree
-        tris.emplace_back(a, b, c);
-    }
-
-    bvh::v2::ThreadPool threadPool;
-    bvh::v2::ParallelExecutor executor(threadPool);
-
-    // Get triangle centers and bounding boxes (required for BVH builder)
-    std::vector<BBox> bboxes(tris.size());
-    std::vector<Vector3> centers(tris.size());
-    executor.for_each(0, tris.size(), [&](const auto begin, const auto end) {
-        for (auto i = begin; i < end; ++i) {
-            bboxes[i] = tris[i].get_bbox();
-            centers[i] = tris[i].get_center();
-        }
-    });
-
-    bvh::v2::DefaultBuilder<Node>::Config config;
-    config.quality = bvh::v2::DefaultBuilder<Node>::Quality::High;
-    auto bvh = bvh::v2::DefaultBuilder<Node>::build(
-        threadPool, bboxes, centers, config);
-
-    // This precomputes some data to speed up traversal further
-    std::vector<PrecomputedTri> precompTris(tris.size());
-    executor.for_each(0, tris.size(), [&](const auto begin, const auto end) {
-        for (auto i = begin; i < end; ++i) {
-            auto j = bvh.prim_ids[i];
-            precompTris[i] = tris[j];
-        }
-    });
+    auto bvhData = BuildBVH(mesh);
+    auto& bvh = bvhData.bvh;
+    auto& precompTris = bvhData.precompTris;
 
     // Texture init
     int cols{-1};
@@ -551,9 +714,13 @@ void ReorderUnorganizedTexture::create_texture_()
     logger()->debug(
         "Output size: {}x{} (Sample rate: {:.5g})", cols, rows, sampleRate);
 
-    // Set up the output image
+    // Set up the output image. Depth/position default to NaN so pixels with no
+    // surface intersection are distinguishable from valid zero-valued samples.
+    constexpr auto kNaN = std::numeric_limits<float>::quiet_NaN();
     outputTexture_ = cv::Mat::zeros(rows, cols, CV_8UC3);
-    outputDepthMap_ = cv::Mat::zeros(rows, cols, CV_32FC1);
+    outputDepthMap_ = cv::Mat(rows, cols, CV_32FC1, cv::Scalar(kNaN));
+    outputPositionMap_ =
+        cv::Mat(rows, cols, CV_32FC3, cv::Scalar(kNaN, kNaN, kNaN));
 
     // Normalize the length
     auto normedX = cv::normalize(xAxis);
@@ -587,9 +754,9 @@ void ReorderUnorganizedTexture::create_texture_()
     }
 
     for (auto [v, u] : range2D(rows, cols)) {
-        // Convert pixel position to offset in mesh's XY space
-        auto uOffset = u * sampleRate * normedX;
-        auto vOffset = v * sampleRate * normedY;
+        // Sample through the pixel center to avoid a half-pixel bias
+        auto uOffset = (u + 0.5) * sampleRate * normedX;
+        auto vOffset = (v + 0.5) * sampleRate * normedY;
 
         // Get t
         auto a0 = origin + uOffset + vOffset;
@@ -608,8 +775,15 @@ void ReorderUnorganizedTexture::create_texture_()
             continue;
         }
 
-        // Assign distance to depth map
-        outputDepthMap_.at<float>(v, u) = static_cast<float>(hit.value().distance);
+        // The ray direction is unit length, so distance is perpendicular depth
+        const auto dist = hit.value().distance;
+        outputDepthMap_.at<float>(v, u) = static_cast<float>(dist);
+
+        // 3D surface position (in the realigned sampling frame)
+        const cv::Vec3d pos = a0 + a1 * dist;
+        outputPositionMap_.at<cv::Vec3f>(v, u) = cv::Vec3f(
+            static_cast<float>(pos[0]), static_cast<float>(pos[1]),
+            static_cast<float>(pos[2]));
 
         // Cell info
         auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
@@ -640,4 +814,107 @@ void ReorderUnorganizedTexture::create_texture_()
     }
 
     outputUV_ = CreateUVMap(mesh, origin, xAxis, yAxis);
+}
+
+void ReorderUnorganizedTexture::create_texture_camera_()
+{
+    // Sample the mesh in its native (world) frame; no realignment.
+    auto mesh = rt::ITK2VTK(inputMesh_);
+
+    // Resolve camera parameters (auto-derive if not explicitly provided). The
+    // auto camera is sized to preserve the input texture's pixel density.
+    double texDensity{0.0};
+    if (not inputTexture_.empty()) {
+        texDensity = ::ComputeUVDensity(
+            inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
+    }
+    const ProjectionParams cam =
+        projParamsSet_ ? projParams_ : ::AutoCamera(mesh, texDensity);
+    if (cam.width <= 0 or cam.height <= 0) {
+        throw std::runtime_error("Camera projection requires positive image size");
+    }
+
+    // Build the BVH over the world-frame mesh
+    auto bvhData = ::BuildBVH(mesh);
+    auto& bvh = bvhData.bvh;
+    auto& precompTris = bvhData.precompTris;
+
+    const int cols = cam.width;
+    const int rows = cam.height;
+    constexpr auto kNaN = std::numeric_limits<float>::quiet_NaN();
+    outputTexture_ = cv::Mat::zeros(rows, cols, CV_8UC3);
+    outputDepthMap_ = cv::Mat(rows, cols, CV_32FC1, cv::Scalar(kNaN));
+    outputPositionMap_ =
+        cv::Mat(rows, cols, CV_32FC3, cv::Scalar(kNaN, kNaN, kNaN));
+
+    // Decompose world->camera extrinsics: x_cam = R * X_world + t
+    cv::Matx33d R;
+    cv::Vec3d t;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            R(i, j) = cam.extrinsics(i, j);
+        }
+        t[i] = cam.extrinsics(i, 3);
+    }
+    const cv::Matx33d rInv = R.t();
+    const cv::Vec3d camCenter = -rInv * t;
+
+    // Far clip from the camera-to-scene distance plus the mesh diagonal
+    std::array<double, 6> bbox{};
+    mesh->ComputeBounds();
+    mesh->GetBounds(bbox.data());
+    const cv::Vec3d bbMin(bbox[0], bbox[2], bbox[4]);
+    const cv::Vec3d bbMax(bbox[1], bbox[3], bbox[5]);
+    const auto diag = cv::norm(bbMax - bbMin);
+    const auto far = (cv::norm(camCenter - 0.5 * (bbMin + bbMax)) + diag) * 2.0;
+
+    for (auto [v, u] : range2D(rows, cols)) {
+        // Pinhole ray through the pixel center: dir = R^-1 * K^-1 * [u, v, 1]
+        const cv::Vec3d dCam(
+            (static_cast<double>(u) + 0.5 - cam.cx) / cam.fx,
+            (static_cast<double>(v) + 0.5 - cam.cy) / cam.fy, 1.0);
+        const auto dCamNorm = cv::norm(dCam);
+        const cv::Vec3d dWorld = rInv * dCam / dCamNorm;  // unit ray direction
+
+        Vector3 start(camCenter[0], camCenter[1], camCenter[2]);
+        Vector3 dir(dWorld[0], dWorld[1], dWorld[2]);
+        Ray ray(start, dir, 0.0, far);
+
+        // Nearest intersection is the visible surface (handles occlusion)
+        auto hit = IntersectRay(ray, bvh, precompTris);
+        if (not hit) {
+            continue;
+        }
+
+        // distance is along the unit ray (slant range); divide by the ray
+        // obliquity to store perpendicular (optical-axis) depth = camera-space Z
+        const auto dist = hit.value().distance;
+        outputDepthMap_.at<float>(v, u) = static_cast<float>(dist / dCamNorm);
+
+        // 3D surface position in the mesh's world frame
+        const cv::Vec3d pos = camCenter + dWorld * dist;
+        outputPositionMap_.at<cv::Vec3f>(v, u) = cv::Vec3f(
+            static_cast<float>(pos[0]), static_cast<float>(pos[1]),
+            static_cast<float>(pos[2]));
+
+        auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
+        std::vector<cv::Vec3d> uvPts;
+        for (const auto& uv : inputUV_.getFaceUVs(cellId)) {
+            uvPts.emplace_back(uv[0], uv[1], 0.0);
+        }
+
+        auto inter = hit.value().intersection;
+        cv::Vec3d bCoord{inter.u, inter.v, 1 - inter.u - inter.v};
+        // bvh barycentric coordinates are relative to the 2nd vertex
+        auto cPoint = ::BaryToXYZ(bCoord, uvPts[1], uvPts[2], uvPts[0]);
+
+        auto x = static_cast<float>(cPoint[0] * (inputTexture_.cols - 1));
+        auto y = static_cast<float>(cPoint[1] * (inputTexture_.rows - 1));
+
+        cv::Mat subRect;
+        cv::getRectSubPix(inputTexture_, {1, 1}, {x, y}, subRect);
+        outputTexture_.at<cv::Vec3b>(v, u) = subRect.at<cv::Vec3b>(0, 0);
+    }
+
+    outputUV_ = ::CreateProjectiveUVMap(mesh, cam);
 }

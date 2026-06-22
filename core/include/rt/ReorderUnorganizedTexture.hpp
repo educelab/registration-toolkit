@@ -47,6 +47,31 @@ public:
                        the largest face of the bounding box */
     };
 
+    /** @brief Projection model used to sample the mesh into the output image */
+    enum class ProjectionMode {
+        Orthographic, /** Parallel rays along the mesh's shortest axis (the
+                         default "snapshot from above" behavior) */
+        Camera        /** Perspective rays from a pinhole camera center */
+    };
+
+    /**
+     * @brief Pinhole camera intrinsics + extrinsics for ProjectionMode::Camera
+     *
+     * @c extrinsics is the world-to-camera matrix (OpenCV convention:
+     * `x_cam = R * X_world + t`, camera looks down +Z, +Y points down). The
+     * focal lengths and principal point are in pixels; @c width and @c height
+     * are the output image dimensions in pixels.
+     */
+    struct ProjectionParams {
+        double fx{1.0};
+        double fy{1.0};
+        double cx{0.0};
+        double cy{0.0};
+        int width{0};
+        int height{0};
+        cv::Matx44d extrinsics{cv::Matx44d::eye()};
+    };
+
     /** @brief Sampling rate mode */
     enum class SamplingMode {
         Rate,         /** Use the sample rate provided by setSampleRate() */
@@ -118,6 +143,32 @@ public:
     /** @copydoc setUseFirstIntersection() */
     [[nodiscard]] auto useFirstIntersection() const -> bool;
 
+    /**
+     * @brief Set the projection model used to sample the mesh
+     *
+     * Switching to ProjectionMode::Camera enables perspective sampling. If no
+     * projection parameters are provided via setProjectionParams(), a sensible
+     * pinhole camera is derived automatically at compute time: positioned along
+     * the mesh's shortest OBB axis, looking at the centroid, with intrinsics and
+     * output size chosen to frame the mesh (mirroring the orthographic view).
+     */
+    void setProjectionMode(ProjectionMode m);
+
+    /** @copydoc setProjectionMode() */
+    [[nodiscard]] auto projectionMode() const -> ProjectionMode;
+
+    /**
+     * @brief Set explicit pinhole intrinsics/extrinsics for
+     * ProjectionMode::Camera
+     *
+     * Also sets the projection mode to ProjectionMode::Camera. Overrides the
+     * auto-derived camera.
+     */
+    void setProjectionParams(const ProjectionParams& params);
+
+    /** @copydoc setProjectionParams() */
+    [[nodiscard]] auto projectionParams() const -> ProjectionParams;
+
     /** @brief Generate the new texture image and UV map */
     auto compute() -> cv::Mat;
 
@@ -128,15 +179,32 @@ public:
     auto getTextureMat() -> cv::Mat;
 
     /**
-     * @brief Get depth map relative to the bounding box plane
+     * @brief Get depth map
      *
-     * Depth is a floating point image in mesh units.
+     * Single-channel float image (CV_32FC1) in mesh units. For
+     * ProjectionMode::Orthographic this is the distance from the sampling plane
+     * along the mesh's shortest axis; for ProjectionMode::Camera it is the
+     * perpendicular (optical-axis) depth, i.e. camera-space Z. Pixels with no
+     * surface intersection are NaN.
      */
     auto getDepthMap() -> cv::Mat;
 
+    /**
+     * @brief Get the per-pixel 3D surface position map
+     *
+     * Three-channel float image (CV_32FC3) giving the (x, y, z) coordinate of
+     * the surface point sampled by each pixel. ProjectionMode::Camera positions
+     * are in the mesh's world frame; ProjectionMode::Orthographic positions are
+     * in the realigned sampling frame. Pixels with no intersection are NaN.
+     */
+    auto getPositionMap() -> cv::Mat;
+
 private:
-    /** Resample the input image into the organized texture */
+    /** Resample the input image into the organized texture (orthographic) */
     void create_texture_();
+
+    /** Resample the input image using a pinhole camera projection */
+    void create_texture_camera_();
 
     /** Input mesh */
     ITKMesh::Pointer inputMesh_;
@@ -157,11 +225,20 @@ private:
     /** Whether we want the first or last mesh intersection point */
     bool useFirstIntersection_{false};
 
+    /** Projection model */
+    ProjectionMode projectionMode_{ProjectionMode::Orthographic};
+    /** Explicit pinhole parameters (used when projParamsSet_ is true) */
+    ProjectionParams projParams_{};
+    /** Whether explicit projection parameters were provided */
+    bool projParamsSet_{false};
+
     /** Output UV map */
     UVMap outputUV_;
     /** Output texture image */
     cv::Mat outputTexture_;
     /** Output depth map */
     cv::Mat outputDepthMap_;
+    /** Output per-pixel 3D position map */
+    cv::Mat outputPositionMap_;
 };
 }  // namespace rt

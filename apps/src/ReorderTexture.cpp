@@ -1,3 +1,6 @@
+#include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -7,6 +10,8 @@
 #include <smgl/Graphviz.hpp>
 #include <smgl/smgl.hpp>
 
+#include "rt/Logging.hpp"
+#include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/Version.hpp"
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
@@ -35,6 +40,90 @@ std::unordered_map<std::string, SamplingMode> StrToMode{
     {"auto", SamplingMode::AutoUV},
 };
 
+using ProjectionParams = ReorderUnorganizedTexture::ProjectionParams;
+
+// Parse a plain-text pinhole camera description (see the --camera-file help)
+// into ProjectionParams. Returns std::nullopt and logs the reason if the file
+// can't be opened or is missing/malformed entries.
+static auto ParseCameraFile(const fs::path& path)
+    -> std::optional<ProjectionParams>
+{
+    std::ifstream camFile(path);
+    if (not camFile) {
+        rt::logger()->error("Could not open camera file: {}", path.string());
+        return std::nullopt;
+    }
+
+    // Collect tokens, stripping '#' comments line-by-line
+    std::stringstream tokens;
+    std::string line;
+    while (std::getline(camFile, line)) {
+        const auto hash = line.find('#');
+        if (hash != std::string::npos) {
+            line.erase(hash);
+        }
+        tokens << line << ' ';
+    }
+
+    ProjectionParams p;
+    bool haveFx{false}, haveFy{false}, haveCx{false}, haveCy{false};
+    bool haveW{false}, haveH{false}, havePose{false};
+    std::string key;
+    auto readScalar = [&](auto& out, const char* name) -> bool {
+        if (not(tokens >> out)) {
+            rt::logger()->error(
+                "Camera file: missing/invalid value for '{}'", name);
+            return false;
+        }
+        return true;
+    };
+    while (tokens >> key) {
+        key = to_lower_copy(key);
+        if (key == "fx") {
+            if (not readScalar(p.fx, "fx")) return std::nullopt;
+            haveFx = true;
+        } else if (key == "fy") {
+            if (not readScalar(p.fy, "fy")) return std::nullopt;
+            haveFy = true;
+        } else if (key == "cx") {
+            if (not readScalar(p.cx, "cx")) return std::nullopt;
+            haveCx = true;
+        } else if (key == "cy") {
+            if (not readScalar(p.cy, "cy")) return std::nullopt;
+            haveCy = true;
+        } else if (key == "width") {
+            if (not readScalar(p.width, "width")) return std::nullopt;
+            haveW = true;
+        } else if (key == "height") {
+            if (not readScalar(p.height, "height")) return std::nullopt;
+            haveH = true;
+        } else if (key == "pose") {
+            for (int r = 0; r < 4; ++r) {
+                for (int c = 0; c < 4; ++c) {
+                    if (not(tokens >> p.extrinsics(r, c))) {
+                        rt::logger()->error(
+                            "Camera file: 'pose' needs 16 numeric values "
+                            "(row-major 4x4)");
+                        return std::nullopt;
+                    }
+                }
+            }
+            havePose = true;
+        } else {
+            rt::logger()->error("Camera file: unknown key '{}'", key);
+            return std::nullopt;
+        }
+    }
+
+    if (not(haveFx and haveFy and haveCx and haveCy and haveW and haveH and
+            havePose)) {
+        rt::logger()->error(
+            "Camera file must define fx, fy, cx, cy, width, height, and pose");
+        return std::nullopt;
+    }
+    return p;
+}
+
 auto main(int argc, char* argv[]) -> int
 {
     ///// Parse the command line options /////
@@ -47,6 +136,8 @@ auto main(int argc, char* argv[]) -> int
         ("output-mesh,o", po::value<std::string>()->required(),
              "Path to output OBJ with ordered texture")
         ("depth-map", po::value<std::string>(), "Path to output depth map image")
+        ("position-map", po::value<std::string>(),
+             "Path to output 3D position map image (CV_32FC3; per-pixel XYZ)")
         ("sampling-origin", po::value<std::string>()->default_value("tl"),
              "Origins: tl, tr, bl, br")
         ("sampling-mode,m", po::value<std::string>()->default_value("auto"),
@@ -68,13 +159,32 @@ auto main(int argc, char* argv[]) -> int
              "the base plane, the first mesh intersection point lies on the "
              "visible surface.");
 
+    po::options_description projOptions("Projection Options");
+    projOptions.add_options()
+        ("projection", po::value<std::string>()->default_value("orthographic"),
+             "Projection model: orthographic (default) or camera. 'camera' "
+             "renders the textured mesh through a pinhole camera; if "
+             "--camera-file is omitted, a camera is auto-derived to frame the "
+             "mesh.")
+        ("camera-file", po::value<std::string>(),
+             "Path to a plain-text file describing the pinhole camera "
+             "intrinsics and world-to-camera pose. The file is a set of "
+             "whitespace-separated key/value entries (order-independent; '#' "
+             "starts a comment):\n"
+             "  fx <px>\n  fy <px>\n  cx <px>\n  cy <px>\n"
+             "  width <px>\n  height <px>\n"
+             "  pose <16 values>\n"
+             "'pose' is the world-to-camera 4x4 matrix in row-major order "
+             "(OpenCV convention x_cam = R*X + t); its 16 values may span "
+             "multiple lines.");
+
     po::options_description graphOptions("Render Graph Options");
     graphOptions.add_options()
     ("output-graph,g", po::value<std::string>(), "Render graph JSON file")
     ("output-dot", po::value<std::string>(), "Render graph Dot file");
 
     po::options_description all("Usage");
-    all.add(required).add(graphOptions);
+    all.add(required).add(projOptions).add(graphOptions);
     // clang-format on
 
     // Parse the cmd line
@@ -110,6 +220,30 @@ auto main(int argc, char* argv[]) -> int
     auto sampleDim = parsed["sampling-dim"].as<std::size_t>();
     auto useFirstIntersection = parsed.count("use-first-intersection") > 0;
 
+    // Resolve the projection model
+    using ProjectionMode = ReorderUnorganizedTexture::ProjectionMode;
+    auto projStr = to_lower_copy(parsed["projection"].as<std::string>());
+    if (projStr != "orthographic" and projStr != "camera") {
+        rt::logger()->error("Unknown projection model: {}", projStr);
+        return EXIT_FAILURE;
+    }
+    auto projectionMode = (projStr == "camera") ? ProjectionMode::Camera
+                                                : ProjectionMode::Orthographic;
+
+    // Parse an explicit camera, if one was given
+    std::optional<ProjectionParams> projParams;
+    if (projStr == "camera") {
+        if (parsed.count("camera-file") > 0) {
+            projParams = ParseCameraFile(parsed["camera-file"].as<std::string>());
+            if (not projParams) {
+                return EXIT_FAILURE;
+            }
+        } else {
+            rt::logger()->info(
+                "No explicit camera given; auto-deriving camera from mesh");
+        }
+    }
+
     ///// Start render graph /////
     rt::graph::RegisterNodes();
     smgl::Graph graph;
@@ -143,6 +277,10 @@ auto main(int argc, char* argv[]) -> int
     reorder->sampleRate = sampleRate;
     reorder->sampleDim = sampleDim;
     reorder->useFirstIntersection = useFirstIntersection;
+    reorder->projectionMode = projectionMode;
+    if (projParams) {
+        reorder->projectionParams = *projParams;
+    }
 
     // Write to file
     auto writer = graph.insertNode<MeshWriteNode>();
@@ -156,6 +294,13 @@ auto main(int argc, char* argv[]) -> int
         auto imgWriter = graph.insertNode<WriteImageNode>();
         imgWriter->path = parsed["depth-map"].as<std::string>();
         imgWriter->image = reorder->depthMapOut;
+    }
+
+    // Write 3D position map
+    if (parsed.count("position-map") > 0) {
+        auto posWriter = graph.insertNode<WriteImageNode>();
+        posWriter->path = parsed["position-map"].as<std::string>();
+        posWriter->image = reorder->positionMapOut;
     }
 
     // Compute result
