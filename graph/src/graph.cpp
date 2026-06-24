@@ -19,7 +19,9 @@ static auto RegisterNodesImpl() -> bool
         WriteImageSeriesNode>();
 
     // ImageOps
-    registered &= smgl::RegisterNode<ColorConvertNode>();
+    registered &= smgl::RegisterNode<
+        ColorConvertNode,
+        PositionMapTransformNode>();
 
     // Landmark Registration
     registered &= smgl::RegisterNode<

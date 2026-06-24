@@ -41,6 +41,13 @@ std::unordered_map<std::string, SamplingMode> StrToMode{
     {"auto", SamplingMode::AutoUV},
 };
 
+using PositionMapMode = PositionMapTransformNode::Mode;
+std::unordered_map<std::string, PositionMapMode> StrToPosMapMode{
+    {"raw", PositionMapMode::Raw},
+    {"shifted", PositionMapMode::Shifted},
+    {"normalized", PositionMapMode::Normalized},
+};
+
 using ProjectionParams = ReorderUnorganizedTexture::ProjectionParams;
 
 // Parse a plain-text pinhole camera description (see the --camera-file help)
@@ -149,6 +156,12 @@ auto main(int argc, char* argv[]) -> int
              "Path to output 3D position map image (CV_32FC3; per-pixel XYZ). "
              "Values are floating-point, so a float-capable format (e.g. .tif) "
              "is recommended.")
+        ("position-map-mode", po::value<std::string>()->default_value("shifted"),
+             "Position map value range (per axis): 'shifted' (default) "
+             "subtracts each axis's minimum so values lie in [0, extent), "
+             "preserving scale; 'normalized' rescales each axis into [0, 1]; "
+             "'raw' writes the surface coordinates unchanged. Only used with "
+             "--position-map.")
         ("sampling-origin", po::value<std::string>()->default_value("tl"),
              "Origins: tl, tr, bl, br")
         ("sampling-mode,m", po::value<std::string>()->default_value("auto"),
@@ -230,6 +243,15 @@ auto main(int argc, char* argv[]) -> int
     auto sampleRate = parsed["sampling-rate"].as<double>();
     auto sampleDim = parsed["sampling-dim"].as<std::size_t>();
     auto useFirstIntersection = parsed.count("use-first-intersection") > 0;
+
+    // Resolve the position map value range
+    auto posMapModeStr =
+        to_lower_copy(parsed["position-map-mode"].as<std::string>());
+    if (StrToPosMapMode.count(posMapModeStr) == 0) {
+        rt::logger()->error("Unknown position map mode: {}", posMapModeStr);
+        return EXIT_FAILURE;
+    }
+    auto positionMapMode = StrToPosMapMode.at(posMapModeStr);
 
     // Resolve the projection model
     using ProjectionMode = ReorderUnorganizedTexture::ProjectionMode;
@@ -317,11 +339,15 @@ auto main(int argc, char* argv[]) -> int
         imgWriter->image = reorder->depthMapOut;
     }
 
-    // Write 3D position map
+    // Write 3D position map, adjusting its per-axis value range first
     if (parsed.count("position-map") > 0) {
+        auto posTransform = graph.insertNode<PositionMapTransformNode>();
+        posTransform->imageIn = reorder->positionMapOut;
+        posTransform->mode = positionMapMode;
+
         auto posWriter = graph.insertNode<WriteImageNode>();
         posWriter->path = parsed["position-map"].as<std::string>();
-        posWriter->image = reorder->positionMapOut;
+        posWriter->image = posTransform->imageOut;
     }
 
     // Compute result
