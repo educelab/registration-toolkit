@@ -83,8 +83,8 @@ rtg::ReorderTextureNode::ReorderTextureNode()
     }}
     , imageOut{&outImg_}
     , uvMapOut{&outUV_}
-    , depthMapOut{&reorder_, &ReorderUnorganizedTexture::getDepthMap}
-    , positionMapOut{&reorder_, &ReorderUnorganizedTexture::getPositionMap}
+    , depthMapOut{&outDepth_}
+    , positionMapOut{&outPosition_}
 {
     registerInputPort("mesh", meshIn);
     registerInputPort("imageIn", imageIn);
@@ -105,6 +105,8 @@ rtg::ReorderTextureNode::ReorderTextureNode()
         rt::logger()->info("Reordering texture image");
         outImg_ = reorder_.compute();
         outUV_ = reorder_.getUVMap();
+        outDepth_ = reorder_.getDepthMap();
+        outPosition_ = reorder_.getPositionMap();
     };
 }
 
@@ -130,13 +132,14 @@ auto rtg::ReorderTextureNode::serialize_(
         if (not outImg_.empty()) {
             WriteImage(cacheDir / "reordered_img.tif", outImg_);
             m["image"] = "reordered_img.tif";
-            WriteImage(cacheDir / "depth_map.tif", reorder_.getDepthMap());
-            m["depth-map"] = "depth_map.tif";
-            if (not reorder_.getPositionMap().empty()) {
-                WriteImage(
-                    cacheDir / "position_map.tif", reorder_.getPositionMap());
-                m["position-map"] = "position_map.tif";
-            }
+        }
+        if (not outDepth_.empty()) {
+            WriteImage(cacheDir / "depth_map.tif", outDepth_);
+            m["depthMap"] = "depth_map.tif";
+        }
+        if (not outPosition_.empty()) {
+            WriteImage(cacheDir / "position_map.tif", outPosition_);
+            m["positionMap"] = "position_map.tif";
         }
     }
     return m;
@@ -170,5 +173,13 @@ void rtg::ReorderTextureNode::deserialize_(
     if (meta.contains("image")) {
         const auto file = meta["image"].get<std::string>();
         outImg_ = ReadImage(cacheDir / file);
+    }
+    if (meta.contains("depthMap")) {
+        const auto file = meta["depthMap"].get<std::string>();
+        outDepth_ = ReadImage(cacheDir / file);
+    }
+    if (meta.contains("positionMap")) {
+        const auto file = meta["positionMap"].get<std::string>();
+        outPosition_ = ReadImage(cacheDir / file);
     }
 }

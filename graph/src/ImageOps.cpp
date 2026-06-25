@@ -38,6 +38,11 @@ static auto TransformPositionMap(
     cv::split(map, channels);
     for (auto& ch : channels) {
         const cv::Mat finite = (ch == ch);
+        // No intersected pixels on this axis: nothing to rescale, and
+        // cv::minMaxLoc requires a non-empty mask. Leave the channel as-is.
+        if (cv::countNonZero(finite) == 0) {
+            continue;
+        }
         double mn{0.0}, mx{0.0};
         cv::minMaxLoc(ch, &mn, &mx, nullptr, nullptr, finite);
         if (mode == Mode::Shifted) {

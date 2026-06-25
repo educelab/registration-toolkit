@@ -31,3 +31,25 @@ foreach(src ${tests})
         COMMAND ${testname}
     )
 endforeach()
+
+## Tests that exercise render graph nodes ##
+set(graph_tests
+    src/TestImageOps.cpp
+)
+
+foreach(src ${graph_tests})
+    get_filename_component(filename ${src} NAME_WE)
+    set(testname rt_${filename})
+    add_executable(${testname} ${src})
+    target_link_libraries(${testname}
+        rt::core
+        rt::graph
+        gtest_main
+        gmock_main
+    )
+    add_test(
+        NAME ${testname}
+        WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+        COMMAND ${testname}
+    )
+endforeach()

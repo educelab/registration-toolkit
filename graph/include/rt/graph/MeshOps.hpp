@@ -75,6 +75,10 @@ private:
     cv::Mat outImg_;
     /** Output UV map */
     UVMap outUV_;
+    /** Output depth map */
+    cv::Mat outDepth_;
+    /** Output 3D position map */
+    cv::Mat outPosition_;
 
     /** Graph serialize */
     auto serialize_(bool useCache, const filesystem::path& cacheDir)
