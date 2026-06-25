@@ -1,3 +1,6 @@
+#include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -7,9 +10,12 @@
 #include <smgl/Graphviz.hpp>
 #include <smgl/smgl.hpp>
 
+#include "rt/Logging.hpp"
+#include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/Version.hpp"
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
+#include "rt/io/FileExtensionFilter.hpp"
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
@@ -35,6 +41,136 @@ std::unordered_map<std::string, SamplingMode> StrToMode{
     {"auto", SamplingMode::AutoUV},
 };
 
+using PositionMapMode = PositionMapTransformNode::Mode;
+std::unordered_map<std::string, PositionMapMode> StrToPosMapMode{
+    {"raw", PositionMapMode::Raw},
+    {"shifted", PositionMapMode::Shifted},
+    {"normalized", PositionMapMode::Normalized},
+};
+
+using ProjectionParams = ReorderUnorganizedTexture::ProjectionParams;
+
+// Parse a plain-text pinhole camera description (see the --camera-file help)
+// into ProjectionParams. Returns std::nullopt and logs the reason if the file
+// can't be opened or is missing/malformed entries.
+static auto ParseCameraFile(const fs::path& path)
+    -> std::optional<ProjectionParams>
+{
+    std::ifstream camFile(path);
+    if (not camFile) {
+        rt::logger()->error("Could not open camera file: {}", path.string());
+        return std::nullopt;
+    }
+
+    ProjectionParams p;
+    bool haveFx{false}, haveFy{false}, haveCx{false}, haveCy{false};
+    bool haveW{false}, haveH{false}, havePose{false};
+
+    // One key/value entry per line ('#' starts a comment). Last occurrence of
+    // a key wins; unknown keys are ignored for forward-compatibility.
+    std::string line;
+    while (std::getline(camFile, line)) {
+        const auto hash = line.find('#');
+        if (hash != std::string::npos) {
+            line.erase(hash);
+        }
+        std::istringstream ls(line);
+        std::string key;
+        if (not(ls >> key)) {
+            continue;  // blank or comment-only line
+        }
+        key = to_lower_copy(key);
+
+        auto readScalar = [&](auto& out) -> bool {
+            if (not(ls >> out)) {
+                rt::logger()->error(
+                    "Camera file: missing/invalid value for '{}'", key);
+                return false;
+            }
+            return true;
+        };
+
+        if (key == "fx") {
+            if (not readScalar(p.fx)) return std::nullopt;
+            haveFx = true;
+        } else if (key == "fy") {
+            if (not readScalar(p.fy)) return std::nullopt;
+            haveFy = true;
+        } else if (key == "cx") {
+            if (not readScalar(p.cx)) return std::nullopt;
+            haveCx = true;
+        } else if (key == "cy") {
+            if (not readScalar(p.cy)) return std::nullopt;
+            haveCy = true;
+        } else if (key == "width") {
+            if (not readScalar(p.width)) return std::nullopt;
+            haveW = true;
+        } else if (key == "height") {
+            if (not readScalar(p.height)) return std::nullopt;
+            haveH = true;
+        } else if (key == "k1") {
+            if (not readScalar(p.k1)) return std::nullopt;
+        } else if (key == "k2") {
+            if (not readScalar(p.k2)) return std::nullopt;
+        } else if (key == "k3") {
+            if (not readScalar(p.k3)) return std::nullopt;
+        } else if (key == "p1" or key == "p2") {
+            // Tangential distortion is unsupported; tolerate explicit zeros.
+            double val{0.0};
+            if (not readScalar(val)) return std::nullopt;
+            if (val != 0.0) {
+                rt::logger()->error(
+                    "Camera file: tangential distortion ('{}') is not "
+                    "supported",
+                    key);
+                return std::nullopt;
+            }
+        } else if (key == "pose") {
+            for (int r = 0; r < 4; ++r) {
+                for (int c = 0; c < 4; ++c) {
+                    if (not(ls >> p.extrinsics(r, c))) {
+                        rt::logger()->error(
+                            "Camera file: 'pose' needs exactly 16 numeric "
+                            "values (row-major 4x4)");
+                        return std::nullopt;
+                    }
+                }
+            }
+            std::string extra;
+            if (ls >> extra) {
+                rt::logger()->error(
+                    "Camera file: 'pose' needs exactly 16 numeric values "
+                    "(row-major 4x4)");
+                return std::nullopt;
+            }
+            havePose = true;
+        } else {
+            // Unknown key: ignore for forward-compatibility
+            rt::logger()->debug(
+                "Camera file: ignoring unknown key '{}'", key);
+        }
+    }
+
+    // fy defaults to fx when omitted; k1/k2/k3 default to 0 (struct defaults)
+    if (haveFx and not haveFy) {
+        p.fy = p.fx;
+        haveFy = true;
+    }
+
+    if (not(haveFx and haveFy and haveCx and haveCy and haveW and haveH and
+            havePose)) {
+        rt::logger()->error(
+            "Camera file must define fx, cx, cy, width, height, and pose "
+            "(fy defaults to fx)");
+        return std::nullopt;
+    }
+    if (const auto err = ValidateProjectionParams(p)) {
+        rt::logger()->error("Camera file: {}", *err);
+        return std::nullopt;
+    }
+    return p;
+}
+
 auto main(int argc, char* argv[]) -> int
 {
     ///// Parse the command line options /////
@@ -44,9 +180,23 @@ auto main(int argc, char* argv[]) -> int
         ("help,h", "Show this message")
         ("input-mesh,i", po::value<std::string>()->required(),
              "Path to input OBJ with unordered texture (i.e. multicharts)")
-        ("output-mesh,o", po::value<std::string>()->required(),
-             "Path to output OBJ with ordered texture")
-        ("depth-map", po::value<std::string>(), "Path to output depth map image")
+        ("output-file,o", po::value<std::string>()->required(),
+             "Output path. An OBJ extension writes the mesh with its ordered "
+             "texture; an image extension (jpg, png, tif) writes just the "
+             "ordered texture image.")
+        ("depth-map", po::value<std::string>(),
+             "Path to output depth map image. Values are floating-point, so a "
+             "float-capable format (e.g. .tif) is recommended.")
+        ("position-map", po::value<std::string>(),
+             "Path to output 3D position map image (CV_32FC3; per-pixel XYZ). "
+             "Values are floating-point, so a float-capable format (e.g. .tif) "
+             "is recommended.")
+        ("position-map-mode", po::value<std::string>()->default_value("shifted"),
+             "Position map value range (per axis): 'shifted' (default) "
+             "subtracts each axis's minimum so values lie in [0, extent), "
+             "preserving scale; 'normalized' rescales each axis into [0, 1]; "
+             "'raw' writes the surface coordinates unchanged. Only used with "
+             "--position-map.")
         ("sampling-origin", po::value<std::string>()->default_value("tl"),
              "Origins: tl, tr, bl, br")
         ("sampling-mode,m", po::value<std::string>()->default_value("auto"),
@@ -68,13 +218,34 @@ auto main(int argc, char* argv[]) -> int
              "the base plane, the first mesh intersection point lies on the "
              "visible surface.");
 
+    po::options_description projOptions("Projection Options");
+    projOptions.add_options()
+        ("projection", po::value<std::string>()->default_value("orthographic"),
+             "Projection model: orthographic (default) or camera. 'camera' "
+             "renders the textured mesh through a pinhole camera; if "
+             "--camera-file is omitted, a camera is auto-derived to frame the "
+             "mesh.")
+        ("camera-file", po::value<std::string>(),
+             "Path to a plain-text file describing the pinhole camera "
+             "intrinsics and world-to-camera pose. One key/value entry per "
+             "line (order-independent, case-insensitive; '#' starts a comment; "
+             "unknown keys are ignored):\n"
+             "  fx <px>\n  fy <px>  (defaults to fx)\n  cx <px>\n  cy <px>\n"
+             "  width <px>\n  height <px>\n"
+             "  k1 <v>  k2 <v>  k3 <v>  (radial distortion; default 0)\n"
+             "  pose <16 values>\n"
+             "'pose' is the world-to-camera 4x4 matrix in row-major order "
+             "(OpenCV convention x_cam = R*X + t), its 16 values on one line. "
+             "Distortion uses the OpenMVG radial_k3 model (== OpenCV with "
+             "p1=p2=0). Ignored unless --projection camera.");
+
     po::options_description graphOptions("Render Graph Options");
     graphOptions.add_options()
     ("output-graph,g", po::value<std::string>(), "Render graph JSON file")
     ("output-dot", po::value<std::string>(), "Render graph Dot file");
 
     po::options_description all("Usage");
-    all.add(required).add(graphOptions);
+    all.add(required).add(projOptions).add(graphOptions);
     // clang-format on
 
     // Parse the cmd line
@@ -99,7 +270,7 @@ auto main(int argc, char* argv[]) -> int
     cvl::setLogLevel(cvl::LogLevel::LOG_LEVEL_SILENT);
 
     fs::path inputPath = parsed["input-mesh"].as<std::string>();
-    fs::path outputPath = parsed["output-mesh"].as<std::string>();
+    fs::path outputPath = parsed["output-file"].as<std::string>();
 
     // Get parameters
     auto originStr = to_lower_copy(parsed["sampling-origin"].as<std::string>());
@@ -109,6 +280,42 @@ auto main(int argc, char* argv[]) -> int
     auto sampleRate = parsed["sampling-rate"].as<double>();
     auto sampleDim = parsed["sampling-dim"].as<std::size_t>();
     auto useFirstIntersection = parsed.count("use-first-intersection") > 0;
+
+    // Resolve the position map value range
+    auto posMapModeStr =
+        to_lower_copy(parsed["position-map-mode"].as<std::string>());
+    if (StrToPosMapMode.count(posMapModeStr) == 0) {
+        rt::logger()->error("Unknown position map mode: {}", posMapModeStr);
+        return EXIT_FAILURE;
+    }
+    auto positionMapMode = StrToPosMapMode.at(posMapModeStr);
+
+    // Resolve the projection model
+    using ProjectionMode = ReorderUnorganizedTexture::ProjectionMode;
+    auto projStr = to_lower_copy(parsed["projection"].as<std::string>());
+    if (projStr != "orthographic" and projStr != "camera") {
+        rt::logger()->error("Unknown projection model: {}", projStr);
+        return EXIT_FAILURE;
+    }
+    auto projectionMode = (projStr == "camera") ? ProjectionMode::Camera
+                                                : ProjectionMode::Orthographic;
+
+    // Parse an explicit camera, if one was given
+    std::optional<ProjectionParams> projParams;
+    if (projStr == "camera") {
+        if (parsed.count("camera-file") > 0) {
+            projParams = ParseCameraFile(parsed["camera-file"].as<std::string>());
+            if (not projParams) {
+                return EXIT_FAILURE;
+            }
+        } else {
+            rt::logger()->info(
+                "No explicit camera given; auto-deriving camera from mesh");
+        }
+    } else if (parsed.count("camera-file") > 0) {
+        rt::logger()->warn(
+            "--camera-file is ignored unless --projection camera");
+    }
 
     ///// Start render graph /////
     rt::graph::RegisterNodes();
@@ -143,19 +350,41 @@ auto main(int argc, char* argv[]) -> int
     reorder->sampleRate = sampleRate;
     reorder->sampleDim = sampleDim;
     reorder->useFirstIntersection = useFirstIntersection;
+    reorder->projectionMode = projectionMode;
+    if (projParams) {
+        reorder->projectionParams = *projParams;
+    }
 
-    // Write to file
-    auto writer = graph.insertNode<MeshWriteNode>();
-    writer->path = outputPath;
-    writer->mesh = reader->mesh;
-    writer->uvMap = reorder->uvMapOut;
-    writer->image = reorder->imageOut;
+    // Write to file: an image-format output gets just the reordered texture
+    // image; any other extension is treated as a textured mesh.
+    if (FileExtensionFilter(outputPath, {"jpg", "jpeg", "png", "tiff", "tif"})) {
+        auto writer = graph.insertNode<WriteImageNode>();
+        writer->path = outputPath;
+        writer->image = reorder->imageOut;
+    } else {
+        auto writer = graph.insertNode<MeshWriteNode>();
+        writer->path = outputPath;
+        writer->mesh = reader->mesh;
+        writer->uvMap = reorder->uvMapOut;
+        writer->image = reorder->imageOut;
+    }
 
     // Write depth map
     if (parsed.count("depth-map") > 0) {
         auto imgWriter = graph.insertNode<WriteImageNode>();
         imgWriter->path = parsed["depth-map"].as<std::string>();
         imgWriter->image = reorder->depthMapOut;
+    }
+
+    // Write 3D position map, adjusting its per-axis value range first
+    if (parsed.count("position-map") > 0) {
+        auto posTransform = graph.insertNode<PositionMapTransformNode>();
+        posTransform->imageIn = reorder->positionMapOut;
+        posTransform->mode = positionMapMode;
+
+        auto posWriter = graph.insertNode<WriteImageNode>();
+        posWriter->path = parsed["position-map"].as<std::string>();
+        posWriter->image = posTransform->imageOut;
     }
 
     // Compute result
