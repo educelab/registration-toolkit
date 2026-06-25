@@ -80,10 +80,8 @@ RUN cmake \
       -DCMAKE_BUILD_TYPE=Release \
     && cmake --build /usr/local/educelab/build \
     && cmake --install /usr/local/educelab/build \
-    && rm -rf /usr/local/educelab/build \
+    && rm -rf /usr/local/educelab \
     && echo /usr/local/lib | tee -a /etc/ld.so.conf.d/local.conf \
-    && ldconfig \
-    && chmod --recursive a+rw /usr/local/educelab/ \
-    && git config --global --add safe.directory /usr/local/educelab/registration-toolkit
+    && ldconfig
 
 CMD ["rt_register", "--help"]
