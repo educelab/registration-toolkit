@@ -1,3 +1,4 @@
+#include <cmath>
 #include <limits>
 
 #include <gtest/gtest.h>
@@ -87,4 +88,53 @@ TEST(ValidateProjectionParams, RejectsReflection)
     auto p = ValidCamera();
     p.extrinsics(0, 0) = -1.0;
     EXPECT_TRUE(rt::ValidateProjectionParams(p).has_value());
+}
+
+TEST(ValidateProjectionParams, RejectsNonFiniteDistortion)
+{
+    const auto nan = std::numeric_limits<double>::quiet_NaN();
+    auto p = ValidCamera();
+    p.k2 = nan;
+    EXPECT_TRUE(rt::ValidateProjectionParams(p).has_value());
+}
+
+TEST(RadialDistortion, IdentityWhenNoCoefficients)
+{
+    auto p = ValidCamera();  // k1 = k2 = k3 = 0
+    const cv::Vec2d pt{0.3, -0.2};
+    const auto d = rt::DistortNormalized(p, pt);
+    EXPECT_NEAR(d[0], pt[0], 1e-12);
+    EXPECT_NEAR(d[1], pt[1], 1e-12);
+
+    const auto u = rt::UndistortNormalized(p, pt);
+    EXPECT_NEAR(u[0], pt[0], 1e-12);
+    EXPECT_NEAR(u[1], pt[1], 1e-12);
+}
+
+TEST(RadialDistortion, DistortPushesPointsOutward)
+{
+    // Positive k1 (barrel) moves an off-center point away from the center
+    auto p = ValidCamera();
+    p.k1 = 0.1;
+    const cv::Vec2d pt{0.4, 0.3};
+    const auto d = rt::DistortNormalized(p, pt);
+    EXPECT_GT(cv::norm(d), cv::norm(pt));
+}
+
+TEST(RadialDistortion, UndistortInvertsDistort)
+{
+    auto p = ValidCamera();
+    p.k1 = -0.12;
+    p.k2 = 0.05;
+    p.k3 = -0.01;
+    // Sweep a range of normalized coordinates and confirm round-trip recovery
+    for (double y = -0.4; y <= 0.4; y += 0.2) {
+        for (double x = -0.4; x <= 0.4; x += 0.2) {
+            const cv::Vec2d ideal{x, y};
+            const auto round =
+                rt::UndistortNormalized(p, rt::DistortNormalized(p, ideal));
+            EXPECT_NEAR(round[0], ideal[0], 1e-6) << "x=" << x << " y=" << y;
+            EXPECT_NEAR(round[1], ideal[1], 1e-6) << "x=" << x << " y=" << y;
+        }
+    }
 }

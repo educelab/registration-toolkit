@@ -492,8 +492,12 @@ auto CreateProjectiveUVMap(
             out.addUV({-1.0, -1.0});
             continue;
         }
-        const auto px = cam.fx * pc[0] / pc[2] + cam.cx;
-        const auto py = cam.fy * pc[1] / pc[2] + cam.cy;
+        // Project to normalized image coords, apply radial distortion, then
+        // scale by the focal length and offset by the principal point.
+        const cv::Vec2d dist =
+            rt::DistortNormalized(cam, {pc[0] / pc[2], pc[1] / pc[2]});
+        const auto px = cam.fx * dist[0] + cam.cx;
+        const auto py = cam.fy * dist[1] + cam.cy;
         out.addUV({px / maxX, py / maxY});
     }
 
@@ -615,6 +619,10 @@ auto rt::ValidateProjectionParams(
     if (not std::isfinite(p.cx) or not std::isfinite(p.cy)) {
         return "principal point (cx, cy) must be finite";
     }
+    if (not std::isfinite(p.k1) or not std::isfinite(p.k2) or
+        not std::isfinite(p.k3)) {
+        return "radial distortion coefficients (k1, k2, k3) must be finite";
+    }
 
     // Rotation block of the world-to-camera extrinsics must be a proper
     // rotation: orthonormal (R*R^T == I) and right-handed (det(R) == +1).
@@ -639,6 +647,35 @@ auto rt::ValidateProjectionParams(
     }
 
     return std::nullopt;
+}
+
+auto rt::DistortNormalized(
+    const ReorderUnorganizedTexture::ProjectionParams& p,
+    const cv::Vec2d& normalized) -> cv::Vec2d
+{
+    const auto r2 = normalized.dot(normalized);
+    const auto rad = 1.0 + p.k1 * r2 + p.k2 * r2 * r2 + p.k3 * r2 * r2 * r2;
+    return normalized * rad;
+}
+
+auto rt::UndistortNormalized(
+    const ReorderUnorganizedTexture::ProjectionParams& p,
+    const cv::Vec2d& distorted) -> cv::Vec2d
+{
+    // Identity fast path when there's no distortion
+    if (p.k1 == 0.0 and p.k2 == 0.0 and p.k3 == 0.0) {
+        return distorted;
+    }
+    // No closed form; iterate (OpenCV undistortPoints). Five iterations is
+    // plenty for the small coefficients seen in practice.
+    cv::Vec2d u = distorted;
+    for (int i = 0; i < 5; ++i) {
+        const auto r2 = u.dot(u);
+        const auto inv =
+            1.0 / (1.0 + p.k1 * r2 + p.k2 * r2 * r2 + p.k3 * r2 * r2 * r2);
+        u = distorted * inv;
+    }
+    return u;
 }
 
 auto ReorderUnorganizedTexture::getUVMap() -> UVMap { return outputUV_; }
@@ -900,10 +937,13 @@ void ReorderUnorganizedTexture::create_texture_camera_()
 
     const bool haveTexture = not inputTexture_.empty();
     for (auto [v, u] : range2D(rows, cols)) {
-        // Pinhole ray through the pixel center: dir = R^-1 * K^-1 * [u, v, 1]
-        const cv::Vec3d dCam(
-            (static_cast<double>(u) + 0.5 - cam.cx) / cam.fx,
-            (static_cast<double>(v) + 0.5 - cam.cy) / cam.fy, 1.0);
+        // Pinhole ray through the pixel center: dir = R^-1 * K^-1 * [u, v, 1].
+        // Undistort the normalized coords first so the ray matches the ideal
+        // pinhole direction (no-op when the camera has no distortion).
+        const cv::Vec2d ideal = rt::UndistortNormalized(
+            cam, {(static_cast<double>(u) + 0.5 - cam.cx) / cam.fx,
+                  (static_cast<double>(v) + 0.5 - cam.cy) / cam.fy});
+        const cv::Vec3d dCam(ideal[0], ideal[1], 1.0);
         const auto dCamNorm = cv::norm(dCam);
         const cv::Vec3d dWorld = rInv * dCam / dCamNorm;  // unit ray direction
 

@@ -62,71 +62,106 @@ static auto ParseCameraFile(const fs::path& path)
         return std::nullopt;
     }
 
-    // Collect tokens, stripping '#' comments line-by-line
-    std::stringstream tokens;
+    ProjectionParams p;
+    bool haveFx{false}, haveFy{false}, haveCx{false}, haveCy{false};
+    bool haveW{false}, haveH{false}, havePose{false};
+
+    // One key/value entry per line ('#' starts a comment). Last occurrence of
+    // a key wins; unknown keys are ignored for forward-compatibility.
     std::string line;
     while (std::getline(camFile, line)) {
         const auto hash = line.find('#');
         if (hash != std::string::npos) {
             line.erase(hash);
         }
-        tokens << line << ' ';
-    }
-
-    ProjectionParams p;
-    bool haveFx{false}, haveFy{false}, haveCx{false}, haveCy{false};
-    bool haveW{false}, haveH{false}, havePose{false};
-    std::string key;
-    auto readScalar = [&](auto& out, const char* name) -> bool {
-        if (not(tokens >> out)) {
-            rt::logger()->error(
-                "Camera file: missing/invalid value for '{}'", name);
-            return false;
+        std::istringstream ls(line);
+        std::string key;
+        if (not(ls >> key)) {
+            continue;  // blank or comment-only line
         }
-        return true;
-    };
-    while (tokens >> key) {
         key = to_lower_copy(key);
+
+        auto readScalar = [&](auto& out) -> bool {
+            if (not(ls >> out)) {
+                rt::logger()->error(
+                    "Camera file: missing/invalid value for '{}'", key);
+                return false;
+            }
+            return true;
+        };
+
         if (key == "fx") {
-            if (not readScalar(p.fx, "fx")) return std::nullopt;
+            if (not readScalar(p.fx)) return std::nullopt;
             haveFx = true;
         } else if (key == "fy") {
-            if (not readScalar(p.fy, "fy")) return std::nullopt;
+            if (not readScalar(p.fy)) return std::nullopt;
             haveFy = true;
         } else if (key == "cx") {
-            if (not readScalar(p.cx, "cx")) return std::nullopt;
+            if (not readScalar(p.cx)) return std::nullopt;
             haveCx = true;
         } else if (key == "cy") {
-            if (not readScalar(p.cy, "cy")) return std::nullopt;
+            if (not readScalar(p.cy)) return std::nullopt;
             haveCy = true;
         } else if (key == "width") {
-            if (not readScalar(p.width, "width")) return std::nullopt;
+            if (not readScalar(p.width)) return std::nullopt;
             haveW = true;
         } else if (key == "height") {
-            if (not readScalar(p.height, "height")) return std::nullopt;
+            if (not readScalar(p.height)) return std::nullopt;
             haveH = true;
+        } else if (key == "k1") {
+            if (not readScalar(p.k1)) return std::nullopt;
+        } else if (key == "k2") {
+            if (not readScalar(p.k2)) return std::nullopt;
+        } else if (key == "k3") {
+            if (not readScalar(p.k3)) return std::nullopt;
+        } else if (key == "p1" or key == "p2") {
+            // Tangential distortion is unsupported; tolerate explicit zeros.
+            double val{0.0};
+            if (not readScalar(val)) return std::nullopt;
+            if (val != 0.0) {
+                rt::logger()->error(
+                    "Camera file: tangential distortion ('{}') is not "
+                    "supported",
+                    key);
+                return std::nullopt;
+            }
         } else if (key == "pose") {
             for (int r = 0; r < 4; ++r) {
                 for (int c = 0; c < 4; ++c) {
-                    if (not(tokens >> p.extrinsics(r, c))) {
+                    if (not(ls >> p.extrinsics(r, c))) {
                         rt::logger()->error(
-                            "Camera file: 'pose' needs 16 numeric values "
-                            "(row-major 4x4)");
+                            "Camera file: 'pose' needs exactly 16 numeric "
+                            "values (row-major 4x4)");
                         return std::nullopt;
                     }
                 }
             }
+            std::string extra;
+            if (ls >> extra) {
+                rt::logger()->error(
+                    "Camera file: 'pose' needs exactly 16 numeric values "
+                    "(row-major 4x4)");
+                return std::nullopt;
+            }
             havePose = true;
         } else {
-            rt::logger()->error("Camera file: unknown key '{}'", key);
-            return std::nullopt;
+            // Unknown key: ignore for forward-compatibility
+            rt::logger()->debug(
+                "Camera file: ignoring unknown key '{}'", key);
         }
+    }
+
+    // fy defaults to fx when omitted; k1/k2/k3 default to 0 (struct defaults)
+    if (haveFx and not haveFy) {
+        p.fy = p.fx;
+        haveFy = true;
     }
 
     if (not(haveFx and haveFy and haveCx and haveCy and haveW and haveH and
             havePose)) {
         rt::logger()->error(
-            "Camera file must define fx, fy, cx, cy, width, height, and pose");
+            "Camera file must define fx, cx, cy, width, height, and pose "
+            "(fy defaults to fx)");
         return std::nullopt;
     }
     if (const auto err = ValidateProjectionParams(p)) {
@@ -192,15 +227,17 @@ auto main(int argc, char* argv[]) -> int
              "mesh.")
         ("camera-file", po::value<std::string>(),
              "Path to a plain-text file describing the pinhole camera "
-             "intrinsics and world-to-camera pose. The file is a set of "
-             "whitespace-separated key/value entries (order-independent; '#' "
-             "starts a comment):\n"
-             "  fx <px>\n  fy <px>\n  cx <px>\n  cy <px>\n"
+             "intrinsics and world-to-camera pose. One key/value entry per "
+             "line (order-independent, case-insensitive; '#' starts a comment; "
+             "unknown keys are ignored):\n"
+             "  fx <px>\n  fy <px>  (defaults to fx)\n  cx <px>\n  cy <px>\n"
              "  width <px>\n  height <px>\n"
+             "  k1 <v>  k2 <v>  k3 <v>  (radial distortion; default 0)\n"
              "  pose <16 values>\n"
              "'pose' is the world-to-camera 4x4 matrix in row-major order "
-             "(OpenCV convention x_cam = R*X + t); its 16 values may span "
-             "multiple lines. Ignored unless --projection camera.");
+             "(OpenCV convention x_cam = R*X + t), its 16 values on one line. "
+             "Distortion uses the OpenMVG radial_k3 model (== OpenCV with "
+             "p1=p2=0). Ignored unless --projection camera.");
 
     po::options_description graphOptions("Render Graph Options");
     graphOptions.add_options()

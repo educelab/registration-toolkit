@@ -44,8 +44,9 @@ using ProjectionParams = rtg::ReorderTextureNode::ProjectionParams;
 template <typename Json>
 void to_json(Json& j, const ProjectionParams& p)
 {
-    j = Json{{"fx", p.fx},     {"fy", p.fy},         {"cx", p.cx},
-             {"cy", p.cy},     {"width", p.width},   {"height", p.height}};
+    j = Json{{"fx", p.fx},         {"fy", p.fy},     {"cx", p.cx},
+             {"cy", p.cy},         {"width", p.width}, {"height", p.height},
+             {"k1", p.k1},         {"k2", p.k2},     {"k3", p.k3}};
     // cv::Matx44d::val is a 16-element, row-major buffer
     std::array<double, 16> ext{};
     std::copy(p.extrinsics.val, p.extrinsics.val + 16, ext.begin());
@@ -61,6 +62,10 @@ void from_json(const Json& j, ProjectionParams& p)
     j.at("cy").get_to(p.cy);
     j.at("width").get_to(p.width);
     j.at("height").get_to(p.height);
+    // Distortion coefficients are optional; default to 0 for older caches.
+    p.k1 = j.value("k1", 0.0);
+    p.k2 = j.value("k2", 0.0);
+    p.k3 = j.value("k3", 0.0);
     const auto ext = j.at("extrinsics").template get<std::array<double, 16>>();
     std::copy(ext.begin(), ext.end(), p.extrinsics.val);
 }

@@ -63,7 +63,9 @@ public:
      * @c extrinsics is the world-to-camera matrix (OpenCV convention:
      * `x_cam = R * X_world + t`, camera looks down +Z, +Y points down). The
      * focal lengths and principal point are in pixels; @c width and @c height
-     * are the output image dimensions in pixels.
+     * are the output image dimensions in pixels. @c k1, @c k2, and @c k3 are
+     * radial distortion coefficients (OpenMVG @c pinhole_radial_k3, identical
+     * to OpenCV with `p1 = p2 = 0`); all default to zero (no distortion).
      */
     struct ProjectionParams {
         double fx{1.0};
@@ -72,6 +74,9 @@ public:
         double cy{0.0};
         int width{0};
         int height{0};
+        double k1{0.0};
+        double k2{0.0};
+        double k3{0.0};
         cv::Matx44d extrinsics{cv::Matx44d::eye()};
     };
 
@@ -274,4 +279,26 @@ private:
 [[nodiscard]] auto ValidateProjectionParams(
     const ReorderUnorganizedTexture::ProjectionParams& params)
     -> std::optional<std::string>;
+
+/**
+ * @brief Apply the radial distortion model to a normalized image coordinate
+ *
+ * Maps an ideal (pinhole) normalized coordinate to its distorted location
+ * using the radial model `r' = 1 + k1*r^2 + k2*r^4 + k3*r^6` (OpenMVG
+ * @c pinhole_radial_k3). With all coefficients zero this is the identity.
+ */
+[[nodiscard]] auto DistortNormalized(
+    const ReorderUnorganizedTexture::ProjectionParams& params,
+    const cv::Vec2d& normalized) -> cv::Vec2d;
+
+/**
+ * @brief Invert the radial distortion model for a normalized image coordinate
+ *
+ * Recovers the ideal (pinhole) normalized coordinate from a distorted one by
+ * fixed-point iteration (OpenCV's @c undistortPoints approach). With all
+ * coefficients zero this is the identity.
+ */
+[[nodiscard]] auto UndistortNormalized(
+    const ReorderUnorganizedTexture::ProjectionParams& params,
+    const cv::Vec2d& distorted) -> cv::Vec2d;
 }  // namespace rt
