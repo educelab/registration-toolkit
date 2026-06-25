@@ -1,0 +1,16 @@
+.git/
+.github/
+.idea/
+**build/
+**cmake-build-*/
+**installed/
+**/__pycache__/
+docs/html/
+docs/latex/
+out/*
+*.sif
+*.iml
+*.iws
+.DS_Store
+# Don't include the README in the image
+README.md
