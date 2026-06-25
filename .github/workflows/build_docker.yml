@@ -1,0 +1,135 @@
+name: Build Docker images
+on:
+  push:
+    branches: ["develop"]
+    tags: ["v*"]
+
+concurrency: docker
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_IMAGE: educelab/registration-toolkit
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build_platform_images:
+    name: Build platform images
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: "amd64"
+            base_image: "ubuntu:24.04"
+            runner: "ubuntu-22.04"
+          - architecture: "arm64"
+            base_image: "ubuntu:24.04"
+            runner: "ubuntu-22.04-arm"
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Clean up disk space
+        run: |
+          # Space usage before cleanup
+          df -h /
+
+          # Remove unused tool caches (comment any required ones with #)
+          sudo rm -rf /usr/lib/jvm
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+          # Verify gains
+          df -h /
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_IMAGE }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          build-args: |
+            BASE_IMAGE=${{ matrix.base_image }}
+          platforms: linux/${{ matrix.architecture }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.REGISTRY }}/${{ env.REGISTRY_IMAGE }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_IMAGE }}/buildcache:${{ matrix.architecture }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REGISTRY_IMAGE }}/buildcache:${{ matrix.architecture }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.push.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.architecture }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge_platform_images:
+    name: Merge platform images
+    needs: build_platform_images
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REGISTRY_IMAGE }}
+          # `latest` tracks the most recent release tag; `edge` tracks develop.
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=edge
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect Image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
