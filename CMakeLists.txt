@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24..3.29 FATAL_ERROR)
-project("registration-toolkit" VERSION 1.8.0)
+project("registration-toolkit" VERSION 1.9.0)
 
 # Modules
 include(FetchContent)
@@ -17,7 +17,7 @@ include(FindDependencies)
 
 # XXX Hack to get ninja output colorized for all source files.
 if (CMAKE_GENERATOR MATCHES "Ninja")
-    add_compile_options(-fdiagnostics-color=always)
+  add_compile_options(-fdiagnostics-color=always)
 endif()
 
 # Enable warnings
@@ -31,7 +31,7 @@ add_subdirectory(graph)
 option(RT_BUILD_APPS "Compile core programs" on)
 cmake_dependent_option(RT_INSTALL_APPS "Install core programs" on "RT_BUILD_APPS" off)
 if (RT_BUILD_APPS)
-    add_subdirectory(apps)
+  add_subdirectory(apps)
 endif()
 
 ## Documentation
@@ -39,14 +39,14 @@ find_package(Doxygen OPTIONAL_COMPONENTS dot)
 cmake_dependent_option(RT_BUILD_DOCS "Build Doxygen documentation" on "DOXYGEN_FOUND" off)
 cmake_dependent_option(RT_INSTALL_DOCS "Install documentation" off "RT_BUILD_DOCS" off)
 if(RT_BUILD_DOCS)
-    add_subdirectory(docs)
+  add_subdirectory(docs)
 endif()
 
 ## Tests
 option(RT_BUILD_TESTS "Compile unit tests" off)
 if(RT_BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
+  enable_testing()
+  add_subdirectory(tests)
 endif()
 
 # Install to system directories
