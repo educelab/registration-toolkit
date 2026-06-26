@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
+#include <educelab/core/utils/Filesystem.hpp>
 #include <educelab/core/utils/String.hpp>
 #include <opencv2/core/utils/logger.hpp>
 #include <smgl/Graphviz.hpp>
@@ -13,8 +14,6 @@
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/Version.hpp"
-#include <educelab/core/utils/Filesystem.hpp>
-
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
 

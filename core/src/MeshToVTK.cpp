@@ -1,6 +1,4 @@
-#include "rt/types/MeshVTK.hpp"
-
-#include <array>
+#include "rt/types/MeshToVTK.hpp"
 
 #include <vtkCellArray.h>
 #include <vtkDoubleArray.h>
@@ -23,10 +21,8 @@ void rt::MeshToVTK(const Mesh& input, vtkSmartPointer<vtkPolyData>& output)
             static_cast<vtkIdType>(vid), v[0], v[1], v[2]);
 
         if (v.normal.has_value()) {
-            const auto& n = *v.normal;
-            std::array<double, 3> ptNorm = {n[0], n[1], n[2]};
             pointNormals->InsertTuple(
-                static_cast<vtkIdType>(vid), ptNorm.data());
+                static_cast<vtkIdType>(vid), v.normal->data());
         }
     }
 

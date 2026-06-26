@@ -5,11 +5,10 @@
 #include <OpenABF/OpenABF.hpp>
 #include <boost/program_options.hpp>
 #include <educelab/core/types/Mat.hpp>
+#include <educelab/core/utils/Filesystem.hpp>
 #include <educelab/core/utils/Iteration.hpp>
 #include <educelab/core/utils/String.hpp>
 #include <opencv2/core.hpp>
-
-#include <educelab/core/utils/Filesystem.hpp>
 
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
@@ -25,15 +24,15 @@ namespace abf = OpenABF;
 
 using ABF = abf::ABFPlusPlus<double>;
 using LSCM = abf::AngleBasedLSCM<double, ABF::Mesh>;
-using AbfMesh = ABF::Mesh;
+using ABFMesh = ABF::Mesh;
 using Mat = el::Mat<4, 4, double>;
 using namespace rt;
 
 namespace
 {
-auto MeshToABF(const rt::Mesh::Pointer& mesh) -> AbfMesh::Pointer
+auto MeshToABF(const rt::Mesh::Pointer& mesh) -> ABFMesh::Pointer
 {
-    auto res = AbfMesh::New();
+    auto res = ABFMesh::New();
     logger()->debug("[MeshToABF] Copying vertices");
     for (std::size_t vid = 0; vid < mesh->num_vertices(); ++vid) {
         const auto& v = mesh->vertex(vid);
@@ -48,7 +47,7 @@ auto MeshToABF(const rt::Mesh::Pointer& mesh) -> AbfMesh::Pointer
     return res;
 }
 
-auto ABFToMesh(const AbfMesh::Pointer& mesh) -> rt::Mesh::Pointer
+auto ABFToMesh(const ABFMesh::Pointer& mesh) -> rt::Mesh::Pointer
 {
     auto res = rt::Mesh::New();
 
@@ -71,7 +70,7 @@ auto ABFToMesh(const AbfMesh::Pointer& mesh) -> rt::Mesh::Pointer
     return res;
 }
 
-auto GetAABB(const AbfMesh::Pointer& mesh) -> std::pair<abf::Vec3d, abf::Vec3d>
+auto GetAABB(const ABFMesh::Pointer& mesh) -> std::pair<abf::Vec3d, abf::Vec3d>
 {
     abf::Vec3d min, max;
     min.fill(abf::INF<double>);
@@ -88,7 +87,7 @@ auto GetAABB(const AbfMesh::Pointer& mesh) -> std::pair<abf::Vec3d, abf::Vec3d>
 
 enum class Axis { X, Y, Z };
 
-auto GetArea(const AbfMesh::Pointer& mesh, Axis axis) -> double
+auto GetArea(const ABFMesh::Pointer& mesh, Axis axis) -> double
 {
     auto [min, max] = GetAABB(mesh);
     if (axis == Axis::X) {
@@ -142,14 +141,14 @@ auto Rotate4x4(const double radians, abf::Vec3d vec) -> Mat
         1};
 }
 
-void ApplyTransform(AbfMesh::Pointer mesh, const Mat& tfm)
+void ApplyTransform(ABFMesh::Pointer mesh, const Mat& tfm)
 {
     for (std::size_t vid = 0; vid < mesh->num_vertices(); ++vid) {
         mesh->vertex(vid)->pos = matmul(tfm, mesh->vertex(vid)->pos);
     }
 }
 
-void MinimizeBBox(const AbfMesh::Pointer& mesh, const Axis axis)
+void MinimizeBBox(const ABFMesh::Pointer& mesh, const Axis axis)
 {
     abf::Vec3d vec;
     if (axis == Axis::X) {
@@ -183,7 +182,7 @@ void MinimizeBBox(const AbfMesh::Pointer& mesh, const Axis axis)
     ApplyTransform(mesh, finalTfm);
 }
 
-auto GetEndpoints(AbfMesh::Pointer& mesh) -> std::pair<std::size_t, std::size_t>
+auto GetEndpoints(ABFMesh::Pointer& mesh) -> std::pair<std::size_t, std::size_t>
 {
     // Create a mat of 3D points
     const auto nVerts = static_cast<int>(mesh->num_vertices());

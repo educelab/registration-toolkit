@@ -7,7 +7,8 @@ set(io_srcs
 )
 
 set(type_srcs
-    src/MeshVTK.cpp
+    src/MeshToVTK.cpp
+    src/UVMap.cpp
     src/Transforms.cpp
 )
 

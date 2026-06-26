@@ -13,28 +13,80 @@ namespace fs = rt::filesystem;
 namespace
 {
 /**
- * Flip the `v` component of every pool coordinate (top-left <-> bottom-left).
- * The transform is its own inverse, so the same routine is used on read and
- * write. Returns a flipped copy, preserving `aspect` and chart indices.
+ * Return a copy of @p in with the `v` component of every pool coordinate
+ * flipped (top-left <-> bottom-left). The transform is its own inverse, so the
+ * same routine is used on read and write. The per-wedge mapping, chart indices,
+ * and `aspect` ride along on the copy untouched; only the pool's `v` values
+ * change — no remapping/rebuild required.
  */
 auto FlipV(const rt::UVMap& in) -> rt::UVMap
 {
-    rt::UVMap out;
-    out.aspect = in.aspect;
-    for (std::size_t i = 0; i < in.size(); ++i) {
-        const auto& uv = in.at(i);
-        const auto idx = out.insert(uv[0], 1.0F - uv[1]);
-        out.at(idx).chart = uv.chart;
-    }
-    for (std::size_t f = 0; f < in.num_faces(); ++f) {
-        const auto corners = in.face_corner_count(f);
-        for (std::size_t c = 0; c < corners; ++c) {
-            if (in.has(f, c)) {
-                out.map(f, c, in.get(f, c));
-            }
-        }
+    rt::UVMap out = in;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        out.at(i)[1] = 1.0F - out.at(i)[1];
     }
     return out;
+}
+
+/**
+ * Shared write implementation. At most one of @p texture / @p textureSource is
+ * expected to be non-empty. When @p uvMap is empty there is nothing to map a
+ * texture to, so any provided texture is dropped with a warning.
+ */
+void WriteMeshImpl(
+    const fs::path& path,
+    const rt::Mesh& mesh,
+    const rt::UVMap& uvMap,
+    const cv::Mat& texture,
+    const fs::path& textureSource)
+{
+    rt::logger()->debug("Writing mesh: {}", path.string());
+
+    const bool haveTexture = not texture.empty();
+    const bool haveSource = not textureSource.empty();
+
+    // No UV map: write geometry (and normals) only
+    if (uvMap.empty()) {
+        if (haveTexture or haveSource) {
+            rt::logger()->warn(
+                "Mesh has no UV map; the provided texture will not be "
+                "written.");
+        }
+        write_mesh(path, mesh);
+        return;
+    }
+
+    // Flip UVs back to the file's (bottom-left) v origin
+    const auto flipped = FlipV(uvMap);
+
+    // UVs but no texture image
+    if (not haveTexture and not haveSource) {
+        write_mesh(path, mesh, flipped);
+        return;
+    }
+
+    // Resolve the output texture path (next to the mesh)
+    fs::path texOut = path;
+    if (haveTexture) {
+        texOut.replace_extension("tif");
+    } else {
+        texOut.replace_extension(textureSource.extension());
+    }
+
+    // Write the mesh + material referencing the texture filename
+    write_mesh(path, mesh, flipped, texOut.filename());
+
+    // Write or copy the texture image itself
+    if (haveTexture) {
+        rt::logger()->debug("Writing texture image: {}", texOut.string());
+        rt::WriteImage(texOut, texture);
+    } else {
+        rt::logger()->debug(
+            "Copying texture image: {} -> {}", textureSource.string(),
+            texOut.string());
+        fs::copy_file(
+            textureSource, texOut, fs::copy_options::overwrite_existing);
+    }
 }
 }  // namespace
 
@@ -71,48 +123,16 @@ void rt::io::WriteMesh(
     const fs::path& path,
     const Mesh& mesh,
     const UVMap& uvMap,
-    const cv::Mat& texture,
+    const cv::Mat& texture)
+{
+    WriteMeshImpl(path, mesh, uvMap, texture, {});
+}
+
+void rt::io::WriteMesh(
+    const fs::path& path,
+    const Mesh& mesh,
+    const UVMap& uvMap,
     const fs::path& textureSource)
 {
-    rt::logger()->debug("Writing mesh: {}", path.string());
-
-    // No UV map: write geometry (and normals) only
-    if (uvMap.empty()) {
-        write_mesh(path, mesh);
-        return;
-    }
-
-    // Flip UVs back to the file's (bottom-left) v origin
-    const auto flipped = FlipV(uvMap);
-
-    const bool haveTexture = not texture.empty();
-    const bool haveSource = not textureSource.empty();
-
-    if (haveTexture or haveSource) {
-        // Resolve the output texture path (next to the mesh)
-        fs::path texOut = path;
-        if (haveTexture) {
-            texOut.replace_extension("tif");
-        } else {
-            texOut.replace_extension(textureSource.extension());
-        }
-
-        // Write the mesh + material referencing the texture filename
-        write_mesh(path, mesh, flipped, texOut.filename());
-
-        // Write or copy the texture image itself
-        if (haveTexture) {
-            rt::logger()->debug("Writing texture image: {}", texOut.string());
-            rt::WriteImage(texOut, texture);
-        } else {
-            rt::logger()->debug(
-                "Copying texture image: {} -> {}", textureSource.string(),
-                texOut.string());
-            fs::copy_file(
-                textureSource, texOut, fs::copy_options::overwrite_existing);
-        }
-    } else {
-        // UVs but no texture image
-        write_mesh(path, mesh, flipped);
-    }
+    WriteMeshImpl(path, mesh, uvMap, cv::Mat(), textureSource);
 }

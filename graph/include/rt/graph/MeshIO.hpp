@@ -77,15 +77,24 @@ public:
     smgl::InputPort<filesystem::path> path{&path_};
     /** @brief Mesh port */
     smgl::InputPort<Mesh::Pointer> mesh{&mesh_};
-    /** @brief Texture image port */
-    smgl::InputPort<cv::Mat> image{&img_};
-    /** @brief Texture image source path port */
-    smgl::InputPort<filesystem::path> imageSource{&imgSource_};
+    /**
+     * @brief Texture image port
+     *
+     * Mutually exclusive with imageSource: whichever of the two received the
+     * most recent update is the one used when writing (smgl ports retain their
+     * last value and cannot be cleared, so recency — not a fixed precedence —
+     * decides). Both setters are wired up in the constructor.
+     */
+    smgl::InputPort<cv::Mat> image;
+    /** @brief Texture image source path port (see image) */
+    smgl::InputPort<filesystem::path> imageSource;
     /** @brief UVMap port */
     smgl::InputPort<UVMap> uvMap{&uv_};
     /**@}*/
 
 private:
+    /** Which texture input was most recently set */
+    enum class TextureInput { None, Image, Source };
     /** File path */
     filesystem::path path_;
     /** Mesh to write */
@@ -96,6 +105,8 @@ private:
     filesystem::path imgSource_;
     /** UV map */
     UVMap uv_;
+    /** Most recently updated texture input (image vs. source path) */
+    TextureInput lastTexture_{TextureInput::None};
     /** Graph serialize */
     smgl::Metadata serialize_(
         bool /*unused*/, const filesystem::path& /*unused*/) override;

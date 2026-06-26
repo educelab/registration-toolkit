@@ -2,7 +2,6 @@
 
 /** @file */
 
-#include <algorithm>
 #include <cstddef>
 #include <vector>
 
@@ -52,33 +51,25 @@ public:
      * Forwards to the base implementation and records the per-face corner
      * count so the standalone `.uvm` serializer can enumerate faces.
      */
-    void map(std::size_t face, std::size_t corner, std::size_t uvIdx)
-    {
-        Base::map(face, corner, uvIdx);
-        if (face >= faceCorners_.size()) {
-            faceCorners_.resize(face + 1, 0);
-        }
-        faceCorners_[face] = std::max(faceCorners_[face], corner + 1);
-    }
+    void map(std::size_t face, std::size_t corner, std::size_t uvIdx);
 
     /** @brief Reset pool, per-wedge mapping, and face index to empty */
-    void clear() noexcept
-    {
-        Base::clear();
-        faceCorners_.clear();
-    }
+    void clear() noexcept;
 
-    /** @brief Number of faces with at least one mapped corner */
-    [[nodiscard]] auto num_faces() const noexcept -> std::size_t
-    {
-        return faceCorners_.size();
-    }
+    /**
+     * @brief Number of face slots tracked: the largest mapped face index + 1
+     *
+     * This is an upper bound on the face indices that have been mapped, not a
+     * count of non-empty faces. If faces are mapped sparsely (e.g. only face 5
+     * is mapped), this returns 6 and faces 0–4 report a face_corner_count() of
+     * 0. Iterating `[0, num_faces())` and guarding on face_corner_count() /
+     * has() therefore visits every mapped wedge and is what the `.uvm`
+     * serializer relies on.
+     */
+    [[nodiscard]] auto num_faces() const noexcept -> std::size_t;
 
     /** @brief Number of corner slots seen for @p face (max mapped corner + 1) */
-    [[nodiscard]] auto face_corner_count(std::size_t face) const -> std::size_t
-    {
-        return (face < faceCorners_.size()) ? faceCorners_[face] : 0;
-    }
+    [[nodiscard]] auto face_corner_count(std::size_t face) const -> std::size_t;
 
 private:
     /** Per-face corner count (max mapped corner index + 1), for serialization */

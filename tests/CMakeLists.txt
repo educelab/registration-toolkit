@@ -11,6 +11,7 @@ FetchContent_MakeAvailable(googletest)
 ## Build the tests ##
 set(tests
     src/TestITKOCVBridge.cpp
+    src/TestMeshIO.cpp
     src/TestUVMapIO.cpp
     src/TestLandmarkIO.cpp
     src/TestReorderUnorganizedTexture.cpp

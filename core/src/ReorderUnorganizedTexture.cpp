@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -24,7 +25,7 @@
 #include <educelab/core/utils/Iteration.hpp>
 
 #include "rt/Logging.hpp"
-#include "rt/types/MeshVTK.hpp"
+#include "rt/types/MeshToVTK.hpp"
 
 using Scalar = double;
 using Vector3 = bvh::v2::Vec<Scalar, 3>;
@@ -979,6 +980,15 @@ auto ReorderUnorganizedTexture::sample_surface_color_(
     const std::size_t cellId, const double interU, const double interV) const
     -> cv::Vec3b
 {
+    // Precondition: reorder UV maps map every corner of every triangle. Both
+    // CreateUVMap and CreateProjectiveUVMap insert one coordinate per cell
+    // corner (behind-camera vertices get a sentinel, but are still mapped), so
+    // a fully-mapped face is guaranteed for any cellId the sampler visits.
+    assert(
+        inputUV_.has(cellId, 0) and inputUV_.has(cellId, 1) and
+        inputUV_.has(cellId, 2) &&
+        "sample_surface_color_: face has an unmapped per-wedge UV corner");
+
     // Get the face's UV coordinates (per-wedge, in corner order)
     std::vector<cv::Vec3d> uvPts;
     for (std::size_t corner = 0; corner < 3; ++corner) {

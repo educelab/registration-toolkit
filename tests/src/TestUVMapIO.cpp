@@ -84,6 +84,40 @@ TEST(UVMapIO, RoundTrip)
     }
 }
 
+// A face with an unmapped middle corner exercises the `mapped == 0` branch of
+// the v2 serializer: the corner count spans the gap, but the gap writes no pool
+// index and must come back unmapped.
+TEST(UVMapIO, RoundTripPartialFace)
+{
+    UVMap orig;
+    orig.aspect = 1.5F;
+    const auto a = orig.insert(0.1F, 0.2F);
+    const auto b = orig.insert(0.3F, 0.4F);
+    orig.at(a).chart = 2;
+    orig.at(b).chart = 5;
+    // Face 0: corners 0 and 2 mapped, corner 1 left as a gap
+    orig.map(0, 0, a);
+    orig.map(0, 2, b);
+
+    const std::string path = "TestUVMapIO_partial.uvm";
+    EXPECT_NO_THROW(WriteUVMap(path, orig));
+
+    UVMap result;
+    EXPECT_NO_THROW(result = ReadUVMap(path));
+
+    EXPECT_EQ(result.size(), orig.size());
+    EXPECT_EQ(result.num_faces(), orig.num_faces());
+    // face_corner_count is (max mapped corner + 1) == 3, including the gap
+    ASSERT_EQ(result.face_corner_count(0), 3U);
+
+    EXPECT_TRUE(result.has(0, 0));
+    EXPECT_FALSE(result.has(0, 1));  // the gap survives the round-trip
+    EXPECT_TRUE(result.has(0, 2));
+    EXPECT_EQ(result.get(0, 0), a);
+    EXPECT_EQ(result.get(0, 2), b);
+    EXPECT_EQ(result.at(result.get(0, 2)).chart, 5U);
+}
+
 // Legacy v1 (per-face) caches must still load: the reader converts them to the
 // current per-wedge representation (top-left coords, default chart 0, aspect
 // recovered from width/height).

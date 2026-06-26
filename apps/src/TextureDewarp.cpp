@@ -2,7 +2,6 @@
 
 #include <OpenABF/OpenABF.hpp>
 #include <boost/program_options.hpp>
-
 #include <educelab/core/utils/Filesystem.hpp>
 
 #include "rt/Logging.hpp"
@@ -19,13 +18,13 @@ using namespace rt;
 
 using ABF = abf::ABFPlusPlus<double>;
 using LSCM = abf::AngleBasedLSCM<double, ABF::Mesh>;
-using AbfMesh = ABF::Mesh;
+using ABFMesh = ABF::Mesh;
 
 namespace
 {
-auto MeshToABF(const rt::Mesh::Pointer& mesh) -> AbfMesh::Pointer
+auto MeshToABF(const rt::Mesh::Pointer& mesh) -> ABFMesh::Pointer
 {
-    auto res = AbfMesh::New();
+    auto res = ABFMesh::New();
     logger()->debug("[MeshToABF] Copying vertices");
     for (std::size_t vid = 0; vid < mesh->num_vertices(); ++vid) {
         const auto& v = mesh->vertex(vid);
@@ -40,7 +39,7 @@ auto MeshToABF(const rt::Mesh::Pointer& mesh) -> AbfMesh::Pointer
     return res;
 }
 
-auto ABFToMesh(const AbfMesh::Pointer& mesh) -> rt::Mesh::Pointer
+auto ABFToMesh(const ABFMesh::Pointer& mesh) -> rt::Mesh::Pointer
 {
     auto res = rt::Mesh::New();
 
