@@ -52,7 +52,10 @@ include(Buildsmgl)
 include(Buildbvh)
 
 ### libcore ###
-include(Buildlibcore)
+# libcore must be installed on the system so that downstream projects linking
+# rt::core can resolve the PUBLIC educelab::core dependency (a FetchContent
+# build is not installed). See cmake/Config.cmake.in.
+find_package(EduceLabCore 0.3.0 CONFIG REQUIRED)
 
 ### OpenABF ###
 include(BuildOpenABF)
