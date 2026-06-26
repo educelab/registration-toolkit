@@ -3,14 +3,14 @@
 #include <OpenABF/OpenABF.hpp>
 #include <boost/program_options.hpp>
 
+#include <educelab/core/utils/Filesystem.hpp>
+
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/filesystem.hpp"
-#include "rt/io/FileExtensionFilter.hpp"
 #include "rt/io/ImageIO.hpp"
-#include "rt/io/OBJReader.hpp"
-#include "rt/io/OBJWriter.hpp"
-#include "rt/types/ITKMesh.hpp"
+#include "rt/io/MeshIO.hpp"
+#include "rt/types/Mesh.hpp"
 
 namespace po = boost::program_options;
 namespace fs = rt::filesystem;
@@ -19,46 +19,45 @@ using namespace rt;
 
 using ABF = abf::ABFPlusPlus<double>;
 using LSCM = abf::AngleBasedLSCM<double, ABF::Mesh>;
-using Mesh = ABF::Mesh;
+using AbfMesh = ABF::Mesh;
 
 namespace
 {
-auto ITKtoABF(const ITKMesh::Pointer& mesh) -> Mesh::Pointer
+auto MeshToABF(const rt::Mesh::Pointer& mesh) -> AbfMesh::Pointer
 {
-    auto res = Mesh::New();
-    logger()->debug("[ITKtoABF] Copying vertices");
-    for (auto pt = mesh->GetPoints()->Begin(); pt != mesh->GetPoints()->End();
-         ++pt) {
-        res->insert_vertex(pt->Value());
+    auto res = AbfMesh::New();
+    logger()->debug("[MeshToABF] Copying vertices");
+    for (std::size_t vid = 0; vid < mesh->num_vertices(); ++vid) {
+        const auto& v = mesh->vertex(vid);
+        res->insert_vertex(v[0], v[1], v[2]);
     }
 
-    logger()->debug("[ITKtoABF] Copying faces");
-    for (const auto cell : *mesh->GetCells()) {
-        res->insert_face(cell->GetPointIdsContainer());
+    logger()->debug("[MeshToABF] Copying faces");
+    for (std::size_t fid = 0; fid < mesh->num_faces(); ++fid) {
+        res->insert_face(mesh->face(fid));
     }
     res->update_boundary();
     return res;
 }
 
-auto ABFtoITK(const Mesh::Pointer& mesh) -> ITKMesh::Pointer
+auto ABFToMesh(const AbfMesh::Pointer& mesh) -> rt::Mesh::Pointer
 {
-    auto res = ITKMesh::New();
+    auto res = rt::Mesh::New();
 
-    logger()->debug("[ABFtoITK] Copying vertices");
+    logger()->debug("[ABFToMesh] Copying vertices");
     for (const auto& v : mesh->vertices()) {
-        res->SetPoint(v->idx, v->pos.data());
-        res->SetPointData(v->idx, v->normal().data());
+        const auto idx = res->insert_vertex(v->pos[0], v->pos[1], v->pos[2]);
+        const auto n = v->normal();
+        res->vertex(idx).normal = educelab::Vec<double, 3>{n[0], n[1], n[2]};
     }
 
-    ITKCell::CellAutoPointer cell;
-    logger()->debug("[ABFtoITK] Copying faces");
+    logger()->debug("[ABFToMesh] Copying faces");
     for (const auto& f : mesh->faces()) {
-        int idx{0};
-        cell.TakeOwnership(new ITKTriangle);
+        rt::Mesh::Face face;
         for (const auto& e : *f) {
-            cell->SetPointId(idx++, e->vertex->idx);
+            face.push_back(e->vertex->idx);
         }
-        res->SetCell(f->idx, cell);
+        res->insert_face(face);
     }
 
     return res;
@@ -99,12 +98,11 @@ auto main(int argc, const char* argv[]) -> int
     const fs::path outPath = args["output"].as<std::string>();
 
     logger()->info("Loading mesh: {}", inPath.string());
-    io::OBJReader reader;
-    reader.setPath(inPath);
-    const auto in = reader.read();
+    auto reader = rt::io::ReadMesh(inPath);
+    const auto in = reader.mesh;
 
     logger()->debug("Converting to HEM");
-    auto hem = ITKtoABF(in);
+    auto hem = MeshToABF(in);
 
     logger()->info("Flattening mesh");
     logger()->debug("Solving ABF++");
@@ -124,28 +122,23 @@ auto main(int argc, const char* argv[]) -> int
     logger()->debug("Solving LSCM");
     LSCM::Compute(hem);
 
-    logger()->debug("Converting back to ITK mesh");
-    const auto flat = ABFtoITK(hem);
+    logger()->debug("Converting back to canonical mesh");
+    const auto flat = ABFToMesh(hem);
 
     logger()->info("Reordering texture");
     ReorderUnorganizedTexture reorder;
     reorder.setMesh(flat);
-    reorder.setUVMap(reader.getUVMap());
-    reorder.setTextureMat(reader.getTextureMat());
+    reorder.setUVMap(reader.uvMap);
+    reorder.setTextureMat(reader.texture);
     reorder.setSamplingMode(ReorderUnorganizedTexture::SamplingMode::AutoUV);
     const auto texture = reorder.compute();
 
-    if (FileExtensionFilter(outPath, {"jpg", "jpeg", "png", "tiff", "tif"})) {
+    if (educelab::is_file_type(outPath, "jpg", "jpeg", "png", "tiff", "tif")) {
         logger()->info("Writing image: {}", outPath.string());
         WriteImage(outPath, texture);
-    } else if (FileExtensionFilter(outPath, {"obj"})) {
+    } else if (educelab::is_file_type(outPath, "obj")) {
         logger()->info("Writing mesh: {}", outPath.string());
-        io::OBJWriter writer;
-        writer.setPath(outPath);
-        writer.setMesh(in);
-        writer.setUVMap(reorder.getUVMap());
-        writer.setTexture(texture);
-        writer.write();
+        rt::io::WriteMesh(outPath, *in, reorder.getUVMap(), texture);
     } else {
         logger()->error("Unsupported output format: {}", outPath.string());
         return EXIT_FAILURE;

@@ -7,8 +7,7 @@
 #include <smgl/Ports.hpp>
 
 #include "rt/filesystem.hpp"
-#include "rt/io/OBJWriter.hpp"
-#include "rt/types/ITKMesh.hpp"
+#include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 
 namespace rt::graph
@@ -16,7 +15,7 @@ namespace rt::graph
 
 /**
  * @brief Mesh File Reader
- * @see OBJReader
+ * @see rt::io::ReadMesh
  */
 class MeshReadNode : public smgl::Node
 {
@@ -33,7 +32,7 @@ public:
     /** @name Output Ports */
     /**@{*/
     /** @brief Loaded mesh port */
-    smgl::OutputPort<ITKMesh::Pointer> mesh{&mesh_};
+    smgl::OutputPort<Mesh::Pointer> mesh{&mesh_};
     /** @brief Loaded image port */
     smgl::OutputPort<cv::Mat> image{&img_};
     /** @brief Loaded image path port */
@@ -46,7 +45,7 @@ private:
     /** File path */
     filesystem::path path_;
     /** Loaded mesh */
-    ITKMesh::Pointer mesh_;
+    Mesh::Pointer mesh_;
     /** Loaded image */
     cv::Mat img_;
     /** Loaded image path */
@@ -64,7 +63,7 @@ private:
 
 /**
  * @brief Mesh File Writer
- * @see OBJWriter
+ * @see rt::io::WriteMesh
  */
 class MeshWriteNode : public smgl::Node
 {
@@ -75,22 +74,28 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Mesh path port */
-    smgl::InputPort<filesystem::path> path;
+    smgl::InputPort<filesystem::path> path{&path_};
     /** @brief Mesh port */
-    smgl::InputPort<ITKMesh::Pointer> mesh;
+    smgl::InputPort<Mesh::Pointer> mesh{&mesh_};
     /** @brief Texture image port */
-    smgl::InputPort<cv::Mat> image;
+    smgl::InputPort<cv::Mat> image{&img_};
     /** @brief Texture image source path port */
-    smgl::InputPort<filesystem::path> imageSource;
+    smgl::InputPort<filesystem::path> imageSource{&imgSource_};
     /** @brief UVMap port */
-    smgl::InputPort<UVMap> uvMap;
+    smgl::InputPort<UVMap> uvMap{&uv_};
     /**@}*/
 
 private:
     /** File path */
     filesystem::path path_;
-    /** Mesh writer */
-    io::OBJWriter writer_;
+    /** Mesh to write */
+    Mesh::Pointer mesh_;
+    /** Texture image */
+    cv::Mat img_;
+    /** Texture image source path */
+    filesystem::path imgSource_;
+    /** UV map */
+    UVMap uv_;
     /** Graph serialize */
     smgl::Metadata serialize_(
         bool /*unused*/, const filesystem::path& /*unused*/) override;

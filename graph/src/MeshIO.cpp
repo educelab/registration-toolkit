@@ -1,7 +1,6 @@
 #include "rt/graph/MeshIO.hpp"
 
-#include "rt/io/OBJReader.hpp"
-#include "rt/io/OBJWriter.hpp"
+#include "rt/io/MeshIO.hpp"
 #include "rt/Logging.hpp"
 
 using namespace rt;
@@ -18,12 +17,11 @@ rtg::MeshReadNode::MeshReadNode()
     registerOutputPort("uvMap", uvMap);
     compute = [this]() {
         rt::logger()->info("Reading mesh: {}", path_.string());
-        io::OBJReader r;
-        r.setPath(path_);
-        mesh_ = r.read();
-        img_ = r.getTextureMat();
-        imgPath_ = r.getTexturePath();
-        uv_ = r.getUVMap();
+        auto result = io::ReadMesh(path_);
+        mesh_ = result.mesh;
+        img_ = result.texture;
+        imgPath_ = result.texturePath;
+        uv_ = result.uvMap;
     };
 }
 
@@ -40,11 +38,6 @@ void rtg::MeshReadNode::deserialize_(
 }
 
 rtg::MeshWriteNode::MeshWriteNode()
-    : path{&path_}
-    , mesh{&writer_, &io::OBJWriter::setMesh}
-    , image{&writer_, &io::OBJWriter::setTexture}
-    , imageSource{&writer_, &io::OBJWriter::setTextureSource}
-    , uvMap{&writer_, &io::OBJWriter::setUVMap}
 {
     registerInputPort("path", path);
     registerInputPort("mesh", mesh);
@@ -53,8 +46,9 @@ rtg::MeshWriteNode::MeshWriteNode()
     registerInputPort("uvMap", uvMap);
     compute = [this]() {
         rt::logger()->info("Writing mesh: {}", path_.string());
-        writer_.setPath(path_);
-        writer_.write();
+        if (mesh_) {
+            io::WriteMesh(path_, *mesh_, uv_, img_, imgSource_);
+        }
     };
 }
 

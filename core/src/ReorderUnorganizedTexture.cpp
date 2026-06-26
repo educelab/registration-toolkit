@@ -24,7 +24,7 @@
 #include <educelab/core/utils/Iteration.hpp>
 
 #include "rt/Logging.hpp"
-#include "rt/types/ITK2VTK.hpp"
+#include "rt/types/MeshVTK.hpp"
 
 using Scalar = double;
 using Vector3 = bvh::v2::Vec<Scalar, 3>;
@@ -102,18 +102,6 @@ auto BaryToXYZ(
     return uvw[0] * a + uvw[1] * b + uvw[2] * c;
 }
 
-// Get the vertices belong to a cell
-template <typename CellIterator>
-auto GetCellVertices(const ITKMesh::Pointer& mesh, CellIterator& cell)
-{
-    std::vector<cv::Vec3d> pts;
-    for (const auto& id : cell->Value()->GetPointIdsContainer()) {
-        auto p = mesh->GetPoint(id);
-        pts.emplace_back(p[0], p[1], p[2]);
-    }
-    return pts;
-}
-
 // Check if a value is near zero
 template <
     typename T,
@@ -125,8 +113,8 @@ auto NearZero(T val, T eps = 1e-7) -> bool
 
 // Calculate the pixel density of the UV map
 auto ComputeUVDensity(
-    const ITKMesh::Pointer& mesh,
-    const UVMap& uv,
+    const rt::Mesh& mesh,
+    const rt::UVMap& uv,
     const double imgWidth,
     const double imgHeight) -> double
 {
@@ -137,21 +125,30 @@ auto ComputeUVDensity(
     auto maxYIdx = imgHeight - 1;
 
     // For each face
-    for (auto cell = mesh->GetCells()->Begin(); cell != mesh->GetCells()->End();
-         ++cell) {
+    for (std::size_t fi = 0; fi < mesh.num_faces(); ++fi) {
+        const auto& face = mesh.face(fi);
+        if (face.size() < 3) {
+            continue;
+        }
+
+        // Skip faces without a complete UV mapping
+        if (not(uv.has(fi, 0) and uv.has(fi, 1) and uv.has(fi, 2))) {
+            continue;
+        }
 
         // Get the 3D vertices
-        auto pts = ::GetCellVertices(mesh, cell);
+        std::array<cv::Vec3d, 3> pts;
+        for (std::size_t k = 0; k < 3; ++k) {
+            const auto& v = mesh.vertex(face[k]);
+            pts[k] = {v[0], v[1], v[2]};
+        }
 
-        // Get the UV coordinates for this face
-        auto uvs = uv.getFaceUVs(cell->Index());
-
-        // Transform UVs to image coordinates
-        std::transform(
-            uvs.begin(), uvs.end(), uvs.begin(),
-            [maxXIdx, maxYIdx](const cv::Vec2d& p) -> cv::Vec2d {
-                return {p[0] * maxXIdx, p[1] * maxYIdx};
-            });
+        // Get the UV coordinates for this face, in image coordinates
+        std::array<cv::Vec2d, 3> uvs;
+        for (std::size_t k = 0; k < 3; ++k) {
+            const auto& c = uv.get_coordinate(fi, k);
+            uvs[k] = {c[0] * maxXIdx, c[1] * maxYIdx};
+        }
 
         // Update the density for each edge
         for (std::size_t idxA = 0; idxA < 3; idxA++) {
@@ -264,16 +261,16 @@ auto CreateUVMap(
     vtkPolyData* mesh,
     const cv::Vec3d& o,
     const cv::Vec3d& x,
-    const cv::Vec3d& y) -> UVMap
+    const cv::Vec3d& y) -> rt::UVMap
 {
-    UVMap out;
+    rt::UVMap out;
 
     const auto uLen = cv::norm(x);
     const auto vLen = cv::norm(y);
     const auto uVec = x / uLen;
     const auto vVec = y / vLen;
 
-    // Add points
+    // Add points to the pool (one UV per vertex; pool index == point index)
     cv::Vec3d p;
     for (const auto ptID : range(mesh->GetNumberOfPoints())) {
         mesh->GetPoint(ptID, p.val);
@@ -281,19 +278,18 @@ auto CreateUVMap(
         auto u = (p - o).dot(uVec) / uLen;
         auto v = (p - o).dot(vVec) / vLen;
 
-        out.addUV({u, v});
+        [[maybe_unused]] const auto idx =
+            out.insert(static_cast<float>(u), static_cast<float>(v));
     }
 
-    // Add faces
+    // Map per-wedge UVs (vertex index doubles as pool index)
     const auto ptIDs = vtkSmartPointer<vtkIdList>::New();
-    UVMap::Face f;
     for (const auto cellIdx : range(mesh->GetNumberOfCells())) {
         mesh->GetCellPoints(cellIdx, ptIDs);
-        int idx{0};
+        std::size_t corner{0};
         for (const auto ptID : *ptIDs) {
-            f[idx++] = ptID;
+            out.map(cellIdx, corner++, static_cast<std::size_t>(ptID));
         }
-        out.addFace(cellIdx, f);
     }
 
     return out;
@@ -470,9 +466,9 @@ auto AutoCamera(vtkPolyData* mesh, double sampleRate)
 // at the sentinel UV, so that face will texture-map incorrectly.
 auto CreateProjectiveUVMap(
     vtkPolyData* mesh, const ReorderUnorganizedTexture::ProjectionParams& cam)
-    -> UVMap
+    -> rt::UVMap
 {
-    UVMap out;
+    rt::UVMap out;
     cv::Matx33d R;
     cv::Vec3d t;
     for (int i = 0; i < 3; ++i) {
@@ -489,7 +485,7 @@ auto CreateProjectiveUVMap(
         mesh->GetPoint(ptID, p.val);
         const cv::Vec3d pc = R * p + t;
         if (pc[2] <= 0) {
-            out.addUV({-1.0, -1.0});
+            [[maybe_unused]] const auto idx = out.insert(-1.0F, -1.0F);
             continue;
         }
         // Project to normalized image coords, apply radial distortion, then
@@ -498,30 +494,29 @@ auto CreateProjectiveUVMap(
             rt::DistortNormalized(cam, {pc[0] / pc[2], pc[1] / pc[2]});
         const auto px = cam.fx * dist[0] + cam.cx;
         const auto py = cam.fy * dist[1] + cam.cy;
-        out.addUV({px / maxX, py / maxY});
+        [[maybe_unused]] const auto idx = out.insert(
+            static_cast<float>(px / maxX), static_cast<float>(py / maxY));
     }
 
     const auto ptIDs = vtkSmartPointer<vtkIdList>::New();
-    UVMap::Face f;
     for (const auto cellIdx : range(mesh->GetNumberOfCells())) {
         mesh->GetCellPoints(cellIdx, ptIDs);
-        int idx{0};
+        std::size_t corner{0};
         for (const auto ptID : *ptIDs) {
-            f[idx++] = ptID;
+            out.map(cellIdx, corner++, static_cast<std::size_t>(ptID));
         }
-        out.addFace(cellIdx, f);
     }
     return out;
 }
 
 }  // namespace
 
-void ReorderUnorganizedTexture::setMesh(const ITKMesh::Pointer& mesh)
+void ReorderUnorganizedTexture::setMesh(const Mesh::Pointer& mesh)
 {
     inputMesh_ = mesh;
 }
 
-void ReorderUnorganizedTexture::setUVMap(const UVMap& uv) { inputUV_ = uv; }
+void ReorderUnorganizedTexture::setUVMap(const rt::UVMap& uv) { inputUV_ = uv; }
 
 void ReorderUnorganizedTexture::setTextureMat(const cv::Mat& img)
 {
@@ -678,7 +673,7 @@ auto rt::UndistortNormalized(
     return u;
 }
 
-auto ReorderUnorganizedTexture::getUVMap() -> UVMap { return outputUV_; }
+auto ReorderUnorganizedTexture::getUVMap() -> rt::UVMap { return outputUV_; }
 
 auto ReorderUnorganizedTexture::getTextureMat() -> cv::Mat
 {
@@ -709,7 +704,7 @@ auto ReorderUnorganizedTexture::compute() -> cv::Mat
 void ReorderUnorganizedTexture::create_texture_()
 {
     // Compute mesh's (rough) OBB
-    auto mesh = rt::ITK2VTK(inputMesh_);
+    auto mesh = rt::MeshToVTK(*inputMesh_);
     auto [origin, xAxis, yAxis, zAxis, size] = ComputeOBB(mesh);
 
     // We're going to transform the mesh to be axis-aligned. Not strictly
@@ -790,7 +785,7 @@ void ReorderUnorganizedTexture::create_texture_()
             break;
         case SamplingMode::AutoUV:
             sampleRate = ::ComputeUVDensity(
-                inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
+                *inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
             cols = static_cast<int>(std::ceil(xLen / sampleRate));
             rows = static_cast<int>(std::ceil(yLen / sampleRate));
             break;
@@ -886,14 +881,14 @@ void ReorderUnorganizedTexture::create_texture_()
 void ReorderUnorganizedTexture::create_texture_camera_()
 {
     // Sample the mesh in its native (world) frame; no realignment.
-    auto mesh = rt::ITK2VTK(inputMesh_);
+    auto mesh = rt::MeshToVTK(*inputMesh_);
 
     // Resolve camera parameters (auto-derive if not explicitly provided). The
     // auto camera is sized to preserve the input texture's pixel density.
     double texDensity{0.0};
     if (not inputTexture_.empty()) {
         texDensity = ::ComputeUVDensity(
-            inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
+            *inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
     }
     const ProjectionParams cam =
         projParamsSet_ ? projParams_ : ::AutoCamera(mesh, texDensity);
@@ -984,9 +979,10 @@ auto ReorderUnorganizedTexture::sample_surface_color_(
     const std::size_t cellId, const double interU, const double interV) const
     -> cv::Vec3b
 {
-    // Get the face's UV coordinates
+    // Get the face's UV coordinates (per-wedge, in corner order)
     std::vector<cv::Vec3d> uvPts;
-    for (const auto& uv : inputUV_.getFaceUVs(cellId)) {
+    for (std::size_t corner = 0; corner < 3; ++corner) {
+        const auto& uv = inputUV_.get_coordinate(cellId, corner);
         uvPts.emplace_back(uv[0], uv[1], 0.0);
     }
 

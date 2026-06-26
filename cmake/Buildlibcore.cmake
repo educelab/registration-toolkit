@@ -1,7 +1,7 @@
 FetchContent_Declare(
     libcore
     GIT_REPOSITORY https://github.com/educelab/libcore.git
-    GIT_TAG 43666d4918a484e7e950fff7607865f78ff4b621
+    GIT_TAG 8eb070c979938131382d6faa1f4c91ccc0ad1aa9
     EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(libcore)

@@ -6,7 +6,7 @@
 
 #include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/filesystem.hpp"
-#include "rt/types/ITKMesh.hpp"
+#include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 
 namespace rt::graph
@@ -33,7 +33,7 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Mesh port */
-    smgl::InputPort<ITKMesh::Pointer> meshIn;
+    smgl::InputPort<Mesh::Pointer> meshIn;
     /** @brief Input texture image port */
     smgl::InputPort<cv::Mat> imageIn;
     /** @brief Input UV Map port */

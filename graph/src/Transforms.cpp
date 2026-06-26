@@ -122,8 +122,8 @@ rtg::TransformUVMapNode::TransformUVMapNode() : Node{true}
     compute = [this]() {
         rt::logger()->info("Transforming UV map");
         uvOut_ = UVMap();
-        uvOut_.ratio(fixed_.cols, fixed_.rows);
-        uvOut_.setOrigin(uvIn_.origin());
+        uvOut_.aspect =
+            static_cast<float>(fixed_.cols) / static_cast<float>(fixed_.rows);
 
         const auto fC = static_cast<double>(fixed_.cols - 1);
         const auto fR = static_cast<double>(fixed_.rows - 1);
@@ -131,12 +131,23 @@ rtg::TransformUVMapNode::TransformUVMapNode() : Node{true}
         const auto mR = static_cast<double>(moving_.rows - 1);
         const cv::Vec2d fixedSize{fC, fR};
         cv::Vec2d movingSize{mC, mR};
-        for (const auto& [key, face] : uvIn_.faces_as_map()) {
+        for (std::size_t face = 0; face < uvIn_.num_faces(); ++face) {
+            const auto corners = uvIn_.face_corner_count(face);
+            if (corners == 0) {
+                continue;
+            }
+
             bool valid{true};
-            UVMap::Face f;
-            int fIdx{0};
-            for (const auto& uv : uvIn_.getFaceUVs(key)) {
+            std::vector<std::pair<std::size_t, std::size_t>> wedges;
+            for (std::size_t c = 0; c < corners; ++c) {
+                if (not uvIn_.has(face, c)) {
+                    valid = false;
+                    break;
+                }
+                const auto& coord = uvIn_.get_coordinate(face, c);
+
                 // Transform the UV point
+                const cv::Vec2d uv{coord[0], coord[1]};
                 auto in = uv.mul(fixedSize);
                 auto out = tfm_->TransformPoint(in.val);
                 cv::Vec2d newUV{out[0] / movingSize[0], out[1] / movingSize[1]};
@@ -148,13 +159,17 @@ rtg::TransformUVMapNode::TransformUVMapNode() : Node{true}
                     break;
                 }
 
-                const auto uvIdx = uvOut_.addUV(newUV);
-                f[fIdx++] = uvIdx;
+                const auto uvIdx = uvOut_.insert(
+                    static_cast<float>(newUV[0]), static_cast<float>(newUV[1]));
+                uvOut_.at(uvIdx).chart = coord.chart;
+                wedges.emplace_back(c, uvIdx);
             }
 
             // Only add if we have a valid face
             if (valid) {
-                uvOut_.addFace(key, f);
+                for (const auto& [c, uvIdx] : wedges) {
+                    uvOut_.map(face, c, uvIdx);
+                }
             }
         }
     };

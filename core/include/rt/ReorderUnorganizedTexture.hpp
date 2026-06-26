@@ -7,7 +7,7 @@
 
 #include <opencv2/core.hpp>
 
-#include "rt/types/ITKMesh.hpp"
+#include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 
 namespace rt
@@ -104,7 +104,7 @@ public:
     constexpr static double DEFAULT_SAMPLE_RATE{0.1};
 
     /** @brief Set the input mesh */
-    void setMesh(const ITKMesh::Pointer& mesh);
+    void setMesh(const Mesh::Pointer& mesh);
     /** @brief Set the input UV map for the mesh */
     void setUVMap(const UVMap& uv);
     /** @brief Set the input, unorganized texture image */
@@ -233,7 +233,7 @@ private:
         std::size_t cellId, double interU, double interV) const -> cv::Vec3b;
 
     /** Input mesh */
-    ITKMesh::Pointer inputMesh_;
+    Mesh::Pointer inputMesh_;
     /** Input UV map */
     UVMap inputUV_;
     /** Input texture image */

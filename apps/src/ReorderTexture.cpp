@@ -13,9 +13,10 @@
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/Version.hpp"
+#include <educelab/core/utils/Filesystem.hpp>
+
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
-#include "rt/io/FileExtensionFilter.hpp"
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
@@ -357,7 +358,7 @@ auto main(int argc, char* argv[]) -> int
 
     // Write to file: an image-format output gets just the reordered texture
     // image; any other extension is treated as a textured mesh.
-    if (FileExtensionFilter(outputPath, {"jpg", "jpeg", "png", "tiff", "tif"})) {
+    if (is_file_type(outputPath, "jpg", "jpeg", "png", "tiff", "tif")) {
         auto writer = graph.insertNode<WriteImageNode>();
         writer->path = outputPath;
         writer->image = reorder->imageOut;

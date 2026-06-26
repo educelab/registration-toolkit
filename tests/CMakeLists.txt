@@ -22,6 +22,7 @@ foreach(src ${tests})
     add_executable(${testname} ${src})
     target_link_libraries(${testname}
         rt::core
+        opencv_imgproc
         gtest_main
         gmock_main
     )
