@@ -2,11 +2,11 @@
 
 /** @file */
 
+#include <filesystem>
+
 #include <opencv2/core.hpp>
 #include <smgl/Node.hpp>
 #include <smgl/Ports.hpp>
-
-#include "rt/filesystem.hpp"
 
 namespace rt::graph
 {
@@ -34,11 +34,11 @@ private:
     cv::Mat output_;
 
     /** Graph serialize */
-    auto serialize_(bool useCache, const filesystem::path& cacheDir)
+    auto serialize_(bool useCache, const std::filesystem::path& cacheDir)
         -> smgl::Metadata override;
     /** Graph deserialize */
     void deserialize_(
-        const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
+        const smgl::Metadata& meta, const std::filesystem::path& cacheDir) override;
 };
 
 /**
@@ -78,11 +78,11 @@ private:
     cv::Mat output_;
 
     /** Graph serialize */
-    auto serialize_(bool useCache, const filesystem::path& cacheDir)
+    auto serialize_(bool useCache, const std::filesystem::path& cacheDir)
         -> smgl::Metadata override;
     /** Graph deserialize */
     void deserialize_(
-        const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
+        const smgl::Metadata& meta, const std::filesystem::path& cacheDir) override;
 };
 
 }  // namespace rt::graph

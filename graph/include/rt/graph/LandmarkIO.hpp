@@ -2,10 +2,11 @@
 
 /** @file */
 
+#include <filesystem>
+
 #include <smgl/Node.hpp>
 #include <smgl/Ports.hpp>
 
-#include "rt/filesystem.hpp"
 #include "rt/io/LandmarkIO.hpp"
 
 namespace rt::graph
@@ -24,7 +25,7 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Landmarks file path port */
-    smgl::InputPort<filesystem::path> path{&path_};
+    smgl::InputPort<std::filesystem::path> path{&path_};
     /**@}*/
 
     /** @name Output Ports */
@@ -39,18 +40,18 @@ private:
     /** Landmark file reader */
     LandmarkReader reader_;
     /** File path */
-    filesystem::path path_;
+    std::filesystem::path path_;
     /** Loaded fixed landmarks */
     LandmarkContainer fixed_;
     /** Loaded moving landmarks */
     LandmarkContainer moving_;
     /** Graph serialize */
-    auto serialize_(bool /*unused*/, const filesystem::path& /*unused*/)
+    auto serialize_(bool /*unused*/, const std::filesystem::path& /*unused*/)
         -> smgl::Metadata override;
     /** Graph deserialize */
     void deserialize_(
         const smgl::Metadata& meta,
-        const filesystem::path& /*unused*/) override;
+        const std::filesystem::path& /*unused*/) override;
 };
 
 /**
@@ -66,7 +67,7 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Landmarks file path port */
-    smgl::InputPort<filesystem::path> path{&path_};
+    smgl::InputPort<std::filesystem::path> path{&path_};
     /** @brief Fixed landmarks port */
     smgl::InputPort<LandmarkContainer> fixed{&fixed_};
     /** @brief Moving landmarks port */
@@ -77,18 +78,18 @@ private:
     /** Landmarks writer */
     LandmarkWriter writer_;
     /** File path */
-    filesystem::path path_;
+    std::filesystem::path path_;
     /** Fixed landmarks */
     LandmarkContainer fixed_;
     /** Moving landmarks */
     LandmarkContainer moving_;
     /** Graph serialize */
-    auto serialize_(bool /*unused*/, const filesystem::path& /*unused*/)
+    auto serialize_(bool /*unused*/, const std::filesystem::path& /*unused*/)
         -> smgl::Metadata override;
     /** Graph deserialize */
     void deserialize_(
         const smgl::Metadata& meta,
-        const filesystem::path& /*unused*/) override;
+        const std::filesystem::path& /*unused*/) override;
 };
 
 }  // namespace rt

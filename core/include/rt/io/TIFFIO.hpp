@@ -2,9 +2,9 @@
 
 /** @file */
 
-#include <opencv2/core.hpp>
+#include <filesystem>
 
-#include "rt/filesystem.hpp"
+#include <opencv2/core.hpp>
 
 namespace rt::io
 {
@@ -23,7 +23,7 @@ namespace rt::io
  * @param path Path to TIFF file
  * @param offset Shift the encoded strip offset by a number of bytes
  */
-auto ReadRawTIFF(const filesystem::path& path, int offset = 0) -> cv::Mat;
+auto ReadRawTIFF(const std::filesystem::path& path, int offset = 0) -> cv::Mat;
 
 /**
  * @brief Write a TIFF image to file
@@ -32,5 +32,5 @@ auto ReadRawTIFF(const filesystem::path& path, int offset = 0) -> cv::Mat;
  * unsigned 8 & 16 bit integer types. Also supports 1-4 channel images. Unless
  * you only need TIFF support, use rt::WriteImage instead.
  */
-void WriteTIFF(const filesystem::path& path, const cv::Mat& img);
+void WriteTIFF(const std::filesystem::path& path, const cv::Mat& img);
 }  // namespace rt

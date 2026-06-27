@@ -17,7 +17,7 @@ namespace lt
 
 using namespace rt;
 using namespace educelab;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 // Return a CV Mat type using TIF type (signed, unsigned, float),
 // bit-depth, and number of channels

@@ -12,7 +12,7 @@
 #include "rt/types/Exceptions.hpp"
 
 using namespace rt;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 using namespace educelab;
 
 void LandmarkWriter::setPath(const fs::path& p) { path_ = p; }

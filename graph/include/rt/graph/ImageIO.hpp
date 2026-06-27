@@ -2,11 +2,11 @@
 
 /** @file */
 
+#include <filesystem>
+
 #include <opencv2/core.hpp>
 #include <smgl/Node.hpp>
 #include <smgl/Ports.hpp>
-
-#include "rt/filesystem.hpp"
 
 namespace rt::graph
 {
@@ -24,7 +24,7 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Image path port */
-    smgl::InputPort<filesystem::path> path{&path_};
+    smgl::InputPort<std::filesystem::path> path{&path_};
     /**@}*/
 
     /** @name Output Ports */
@@ -35,16 +35,16 @@ public:
 
 private:
     /** File path */
-    filesystem::path path_;
+    std::filesystem::path path_;
     /** Loaded image */
     cv::Mat img_;
     /** Graph serialize */
     smgl::Metadata serialize_(
-        bool /*unused*/, const filesystem::path& /*unused*/) override;
+        bool /*unused*/, const std::filesystem::path& /*unused*/) override;
     /** Graph deserialize */
     void deserialize_(
         const smgl::Metadata& meta,
-        const filesystem::path& /*unused*/) override;
+        const std::filesystem::path& /*unused*/) override;
 };
 
 /**
@@ -60,23 +60,23 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Image path port */
-    smgl::InputPort<filesystem::path> path{&path_};
+    smgl::InputPort<std::filesystem::path> path{&path_};
     /** @brief Image port */
     smgl::InputPort<cv::Mat> image{&img_};
     /**@}*/
 
 private:
     /** File path */
-    filesystem::path path_;
+    std::filesystem::path path_;
     /** Image to write */
     cv::Mat img_;
     /** Graph serialize */
     smgl::Metadata serialize_(
-        bool /*unused*/, const filesystem::path& /*unused*/) override;
+        bool /*unused*/, const std::filesystem::path& /*unused*/) override;
     /** Graph deserialize */
     void deserialize_(
         const smgl::Metadata& meta,
-        const filesystem::path& /*unused*/) override;
+        const std::filesystem::path& /*unused*/) override;
 };
 
 /**
@@ -96,23 +96,23 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Image path port */
-    smgl::InputPort<filesystem::path> path{&path_};
+    smgl::InputPort<std::filesystem::path> path{&path_};
     /** @brief Image port */
     smgl::InputPort<ImageList> images{&imgs_};
     /**@}*/
 
 private:
     /** File path */
-    filesystem::path path_;
+    std::filesystem::path path_;
     /** Image to write */
     ImageList imgs_;
     /** Graph serialize */
     smgl::Metadata serialize_(
-        bool /*unused*/, const filesystem::path& /*unused*/) override;
+        bool /*unused*/, const std::filesystem::path& /*unused*/) override;
     /** Graph deserialize */
     void deserialize_(
         const smgl::Metadata& meta,
-        const filesystem::path& /*unused*/) override;
+        const std::filesystem::path& /*unused*/) override;
 };
 
 }  // namespace rt::graph

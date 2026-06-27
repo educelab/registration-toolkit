@@ -4,7 +4,7 @@
 #include "rt/Logging.hpp"
 
 namespace rtg = rt::graph;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 // Enum conversions
 namespace rt

@@ -1,10 +1,10 @@
+#include <filesystem>
 #include <iostream>
 
-#include "rt/filesystem.hpp"
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/TIFFIO.hpp"
 
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {

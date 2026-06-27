@@ -13,7 +13,7 @@
 using namespace educelab;
 
 namespace rtg = rt::graph;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 rtg::CompositeTransformNode::CompositeTransformNode() : Node{true}
 {

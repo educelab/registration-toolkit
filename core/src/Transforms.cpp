@@ -6,7 +6,7 @@
 #include <itkTransformFileWriter.h>
 
 using namespace rt;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 void rt::WriteTransform(
     const fs::path& path, const Transform::Pointer& transform)

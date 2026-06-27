@@ -2,9 +2,9 @@
 
 /** @file */
 
-#include <opencv2/core.hpp>
+#include <filesystem>
 
-#include "rt/filesystem.hpp"
+#include <opencv2/core.hpp>
 
 namespace rt
 {
@@ -18,7 +18,7 @@ namespace rt
  * cv::imread(path.string(), cv::IMREAD_UNCHANGED);
  * @endcode
  */
-auto ReadImage(const filesystem::path& path) -> cv::Mat;
+auto ReadImage(const std::filesystem::path& path) -> cv::Mat;
 
 /**
  * @brief Write image to the specified path
@@ -26,6 +26,6 @@ auto ReadImage(const filesystem::path& path) -> cv::Mat;
  * Use rt::WriteTIFF for all tiff images, which includes support for
  * transparency and floating-point images. Otherwise, uses cv::imwrite.
  */
-void WriteImage(const filesystem::path& path, const cv::Mat& img);
+void WriteImage(const std::filesystem::path& path, const cv::Mat& img);
 
 }  // namespace rt

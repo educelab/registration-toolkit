@@ -9,7 +9,7 @@
 #include "rt/io/TIFFIO.hpp"
 #include "rt/util/ImageConversion.hpp"
 
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 using educelab::is_file_type;
 

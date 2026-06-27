@@ -16,13 +16,9 @@ To build from source, see [Build and Install](#build-and-install) below.
 
 ## Requirements
 * CMake 3.24+
-* C++20 compiler
-* Boost 1.58+
+* C++20 compiler (GCC 12+, Clang 15+, or AppleClang 15+)
+* Boost 1.70+
     - Required: Program Options
-    - Optional: Filesystem - This project will automatically check if the 
-      compiler provides `std::filesystem`. If it is not found, then 
-      [Boost.Filesystem](https://www.boost.org/) is required. This behavior 
-      can be controlled with the `RT_USE_BOOSTFS` CMake flag.
 * OpenCV 4+
 * ITK 4+
 * VTK 6+
@@ -94,8 +90,6 @@ The CMake project provides a number of flags for configuring the build:
 * `RT_INSTALL_DOCS`: Install HTML documentation to the system. (Default: OFF)
 * `RT_BUILD_TESTS`: Build project unit tests. This will download and build the 
   Google Test framework. (Default: OFF)
-* `RT_USE_BOOSTFS`: Use the `Boost::filesystem` library instead of 
-  `std::filesystem`. (Default: ON if `std::filesystem` is not found)
 * `RT_USE_VOLCART`: Build with optional Volume Cartographer components 
   (Default: OFF)
   

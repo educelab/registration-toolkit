@@ -1,14 +1,14 @@
+#include <filesystem>
 #include <iostream>
 
 #include <boost/program_options.hpp>
 
-#include "rt/filesystem.hpp"
 #include "rt/io/LandmarkIO.hpp"
 
 using namespace rt;
 
 namespace po = boost::program_options;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
