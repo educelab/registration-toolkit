@@ -8,21 +8,21 @@
 #include <stdexcept>
 
 #include <bvh/v2/bvh.h>
-#include <bvh/v2/vec.h>
-#include <bvh/v2/ray.h>
-#include <bvh/v2/node.h>
 #include <bvh/v2/default_builder.h>
-#include <bvh/v2/thread_pool.h>
 #include <bvh/v2/executor.h>
+#include <bvh/v2/node.h>
+#include <bvh/v2/ray.h>
 #include <bvh/v2/stack.h>
+#include <bvh/v2/thread_pool.h>
 #include <bvh/v2/tri.h>
+#include <bvh/v2/vec.h>
+#include <educelab/core/utils/Iteration.hpp>
+#include <educelab/core/utils/Math.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <vtkOBBTree.h>
 #include <vtkTransform.h>
 #include <vtkTransformPolyDataFilter.h>
-#include <educelab/core/utils/Math.hpp>
-#include <educelab/core/utils/Iteration.hpp>
 
 #include "rt/Logging.hpp"
 #include "rt/types/MeshToVTK.hpp"
