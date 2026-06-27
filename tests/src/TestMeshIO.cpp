@@ -40,10 +40,10 @@ TEST(MeshIO, UVRoundTripTopLeftInvariant)
     auto [mesh, uv] = MakeTexturedTriangle();
 
     const std::string path = "TestMeshIO_roundtrip.obj";
-    EXPECT_NO_THROW(io::WriteMesh(path, *mesh, uv));
+    EXPECT_NO_THROW(WriteMesh(path, *mesh, uv));
 
-    io::MeshReadResult result;
-    EXPECT_NO_THROW(result = io::ReadMesh(path));
+    MeshReadResult result;
+    EXPECT_NO_THROW(result = ReadMesh(path));
 
     // Geometry survives
     ASSERT_EQ(result.mesh->num_vertices(), mesh->num_vertices());
@@ -69,7 +69,7 @@ TEST(MeshIO, WritesBottomLeftVToDisk)
     auto [mesh, uv] = MakeTexturedTriangle();
 
     const std::string path = "TestMeshIO_flip.obj";
-    ASSERT_NO_THROW(io::WriteMesh(path, *mesh, uv));
+    ASSERT_NO_THROW(WriteMesh(path, *mesh, uv));
 
     // The wedge with in-memory UV (0.10, 0.20) must appear on disk as
     // (0.10, 0.80).

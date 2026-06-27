@@ -8,10 +8,10 @@
 #include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 
-namespace rt::io
+namespace rt
 {
 
-/** @brief Result of rt::io::ReadMesh */
+/** @brief Result of rt::ReadMesh */
 struct MeshReadResult {
     /** Loaded mesh (carries vertex normals if the file provided them) */
     Mesh::Pointer mesh;
@@ -72,4 +72,4 @@ void WriteMesh(
     const UVMap& uvMap,
     const filesystem::path& textureSource);
 
-}  // namespace rt::io
+}  // namespace rt

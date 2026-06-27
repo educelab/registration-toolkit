@@ -22,7 +22,7 @@ namespace rt
  *
  * In-memory UV coordinates follow the toolkit's top-left origin invariant (see
  * CONTEXT.md); the bottom-left `vt` flip is applied only at the OBJ/PLY I/O
- * boundary (rt::io::WriteMesh / rt::io::ReadMesh).
+ * boundary (rt::WriteMesh / rt::ReadMesh).
  *
  * @warning Slicing risk: never copy an `rt::UVMap` into an `educelab::UVMap` by
  * value — that drops `aspect`. libcore I/O only takes the map by templated

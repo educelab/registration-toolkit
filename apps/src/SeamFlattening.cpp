@@ -325,7 +325,7 @@ auto main(int argc, const char* argv[]) -> int
     }
 
     logger()->info("Loading mesh: {}", inPath.string());
-    auto reader = rt::io::ReadMesh(inPath);
+    auto reader = rt::ReadMesh(inPath);
     const auto in = reader.mesh;
 
     logger()->debug("Converting to HEM");
@@ -381,7 +381,7 @@ auto main(int argc, const char* argv[]) -> int
             mesh = flat;
         }
 
-        rt::io::WriteMesh(outPath, *mesh, reorder.getUVMap(), texture);
+        rt::WriteMesh(outPath, *mesh, reorder.getUVMap(), texture);
     } else {
         logger()->error("Unsupported output format: {}", outPath.string());
     }

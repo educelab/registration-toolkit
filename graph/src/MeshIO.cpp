@@ -20,7 +20,7 @@ rtg::MeshReadNode::MeshReadNode()
     registerOutputPort("uvMap", uvMap);
     compute = [this]() {
         rt::logger()->info("Reading mesh: {}", path_.string());
-        auto result = io::ReadMesh(path_);
+        auto result = ReadMesh(path_);
         mesh_ = result.mesh;
         img_ = result.texture;
         imgPath_ = result.texturePath;
@@ -67,13 +67,13 @@ rtg::MeshWriteNode::MeshWriteNode()
 
         switch (lastTexture_) {
             case TextureInput::Image:
-                io::WriteMesh(path_, *mesh_, uv_, img_);
+                WriteMesh(path_, *mesh_, uv_, img_);
                 break;
             case TextureInput::Source:
-                io::WriteMesh(path_, *mesh_, uv_, imgSource_);
+                WriteMesh(path_, *mesh_, uv_, imgSource_);
                 break;
             case TextureInput::None:
-                io::WriteMesh(path_, *mesh_, uv_);
+                WriteMesh(path_, *mesh_, uv_);
                 break;
         }
     };

@@ -15,7 +15,7 @@ namespace rt::graph
 
 /**
  * @brief Mesh File Reader
- * @see rt::io::ReadMesh
+ * @see rt::ReadMesh
  */
 class MeshReadNode : public smgl::Node
 {
@@ -63,7 +63,7 @@ private:
 
 /**
  * @brief Mesh File Writer
- * @see rt::io::WriteMesh
+ * @see rt::WriteMesh
  */
 class MeshWriteNode : public smgl::Node
 {

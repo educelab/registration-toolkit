@@ -97,7 +97,7 @@ auto main(int argc, const char* argv[]) -> int
     const fs::path outPath = args["output"].as<std::string>();
 
     logger()->info("Loading mesh: {}", inPath.string());
-    auto reader = rt::io::ReadMesh(inPath);
+    auto reader = rt::ReadMesh(inPath);
     const auto in = reader.mesh;
 
     logger()->debug("Converting to HEM");
@@ -137,7 +137,7 @@ auto main(int argc, const char* argv[]) -> int
         WriteImage(outPath, texture);
     } else if (educelab::is_file_type(outPath, "obj")) {
         logger()->info("Writing mesh: {}", outPath.string());
-        rt::io::WriteMesh(outPath, *in, reorder.getUVMap(), texture);
+        rt::WriteMesh(outPath, *in, reorder.getUVMap(), texture);
     } else {
         logger()->error("Unsupported output format: {}", outPath.string());
         return EXIT_FAILURE;

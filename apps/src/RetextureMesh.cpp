@@ -53,7 +53,7 @@ auto main(int argc, char** argv) -> int
 
     // Load mesh
     const fs::path inputPath = parsed["input-mesh"].as<std::string>();
-    auto reader = rt::io::ReadMesh(inputPath);
+    auto reader = rt::ReadMesh(inputPath);
 
     // Load the image
     const fs::path imagePath = parsed["texture"].as<std::string>();
@@ -68,7 +68,7 @@ auto main(int argc, char** argv) -> int
 
     // Write the new mesh
     const fs::path outputPath = parsed["output-mesh"].as<std::string>();
-    rt::io::WriteMesh(outputPath, *mesh, reader.uvMap, imagePath);
+    rt::WriteMesh(outputPath, *mesh, reader.uvMap, imagePath);
 
     return EXIT_SUCCESS;
 }

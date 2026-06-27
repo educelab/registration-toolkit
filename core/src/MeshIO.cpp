@@ -90,7 +90,7 @@ void WriteMeshImpl(
 }
 }  // namespace
 
-auto rt::io::ReadMesh(const fs::path& path) -> rt::io::MeshReadResult
+auto rt::ReadMesh(const fs::path& path) -> rt::MeshReadResult
 {
     rt::logger()->debug("Reading mesh: {}", path.string());
 
@@ -119,7 +119,7 @@ auto rt::io::ReadMesh(const fs::path& path) -> rt::io::MeshReadResult
     return result;
 }
 
-void rt::io::WriteMesh(
+void rt::WriteMesh(
     const fs::path& path,
     const Mesh& mesh,
     const UVMap& uvMap,
@@ -128,7 +128,7 @@ void rt::io::WriteMesh(
     WriteMeshImpl(path, mesh, uvMap, texture, {});
 }
 
-void rt::io::WriteMesh(
+void rt::WriteMesh(
     const fs::path& path,
     const Mesh& mesh,
     const UVMap& uvMap,
