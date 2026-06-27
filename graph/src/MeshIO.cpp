@@ -87,7 +87,7 @@ smgl::Metadata rtg::MeshWriteNode::serialize_(
         case TextureInput::Image:
             m["texture"] = "image";
             if (useCache and not img_.empty()) {
-                io::WriteImage(cacheDir / "texture.tif", img_);
+                WriteImage(cacheDir / "texture.tif", img_);
                 m["image"] = "texture.tif";
             }
             break;
@@ -113,7 +113,7 @@ void rtg::MeshWriteNode::deserialize_(
     if (texture == "image") {
         lastTexture_ = TextureInput::Image;
         if (meta.contains("image")) {
-            img_ = io::ReadImage(cacheDir / meta["image"].get<std::string>());
+            img_ = ReadImage(cacheDir / meta["image"].get<std::string>());
         }
     } else if (texture == "source") {
         lastTexture_ = TextureInput::Source;
