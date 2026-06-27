@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "rt/Logging.hpp"
+#include "rt/io/ImageIO.hpp"
 #include "rt/io/MeshIO.hpp"
 
 using namespace rt;
@@ -78,13 +79,46 @@ rtg::MeshWriteNode::MeshWriteNode()
     };
 }
 
-smgl::Metadata rtg::MeshWriteNode::serialize_(bool, const fs::path&)
+smgl::Metadata rtg::MeshWriteNode::serialize_(
+    const bool useCache, const fs::path& cacheDir)
 {
-    return {{"path", path_.string()}};
+    smgl::Metadata m{{"path", path_.string()}};
+    switch (lastTexture_) {
+        case TextureInput::Image:
+            m["texture"] = "image";
+            if (useCache and not img_.empty()) {
+                io::WriteImage(cacheDir / "texture.tif", img_);
+                m["image"] = "texture.tif";
+            }
+            break;
+        case TextureInput::Source:
+            m["texture"] = "source";
+            m["imageSource"] = imgSource_.string();
+            break;
+        case TextureInput::None:
+            m["texture"] = "none";
+            break;
+    }
+    return m;
 }
 
 void rtg::MeshWriteNode::deserialize_(
-    const smgl::Metadata& meta, const fs::path&)
+    const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     path_ = meta["path"].get<std::string>();
+    // Graphs written before texture tracking have no "texture" key; treat them
+    // as having written an untextured mesh.
+    const auto texture =
+        meta.contains("texture") ? meta["texture"].get<std::string>() : "none";
+    if (texture == "image") {
+        lastTexture_ = TextureInput::Image;
+        if (meta.contains("image")) {
+            img_ = io::ReadImage(cacheDir / meta["image"].get<std::string>());
+        }
+    } else if (texture == "source") {
+        lastTexture_ = TextureInput::Source;
+        imgSource_ = meta["imageSource"].get<std::string>();
+    } else {
+        lastTexture_ = TextureInput::None;
+    }
 }

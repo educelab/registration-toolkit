@@ -109,11 +109,11 @@ private:
     TextureInput lastTexture_{TextureInput::None};
     /** Graph serialize */
     smgl::Metadata serialize_(
-        bool /*unused*/, const filesystem::path& /*unused*/) override;
+        bool useCache, const filesystem::path& cacheDir) override;
     /** Graph deserialize */
     void deserialize_(
         const smgl::Metadata& meta,
-        const filesystem::path& /*unused*/) override;
+        const filesystem::path& cacheDir) override;
 };
 
 }  // namespace rt
