@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <fstream>
 #include <optional>
 #include <sstream>
@@ -14,7 +15,6 @@
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/Version.hpp"
-#include <filesystem>
 #include "rt/graph.hpp"
 
 namespace fs = std::filesystem;

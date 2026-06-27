@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <regex>
@@ -7,7 +8,6 @@
 #include <opencv2/core/utils/logger.hpp>
 
 #include "rt/DisegniSegmenter.hpp"
-#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 
 namespace fs = std::filesystem;

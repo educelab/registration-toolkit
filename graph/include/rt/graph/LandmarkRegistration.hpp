@@ -2,6 +2,8 @@
 
 /** @file */
 
+#include <filesystem>
+
 #include <opencv2/core.hpp>
 #include <smgl/Node.hpp>
 #include <smgl/Ports.hpp>
@@ -9,7 +11,6 @@
 #include "rt/AffineLandmarkRegistration.hpp"
 #include "rt/BSplineLandmarkWarping.hpp"
 #include "rt/LandmarkDetector.hpp"
-#include <filesystem>
 #include "rt/types/Transforms.hpp"
 
 namespace rt::graph

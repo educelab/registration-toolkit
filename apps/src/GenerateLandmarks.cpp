@@ -1,9 +1,9 @@
+#include <filesystem>
 #include <iostream>
 
 #include <opencv2/core/utils/logger.hpp>
 
 #include "rt/LandmarkDetector.hpp"
-#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
 

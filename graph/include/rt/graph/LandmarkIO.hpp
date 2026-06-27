@@ -2,10 +2,11 @@
 
 /** @file */
 
+#include <filesystem>
+
 #include <smgl/Node.hpp>
 #include <smgl/Ports.hpp>
 
-#include <filesystem>
 #include "rt/io/LandmarkIO.hpp"
 
 namespace rt::graph

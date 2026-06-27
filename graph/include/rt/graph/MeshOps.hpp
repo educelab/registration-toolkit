@@ -1,11 +1,12 @@
 #pragma once
 
+#include <filesystem>
+
 #include <opencv2/core.hpp>
 #include <smgl/Node.hpp>
 #include <smgl/Ports.hpp>
 
 #include "rt/ReorderUnorganizedTexture.hpp"
-#include <filesystem>
 #include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 

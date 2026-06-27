@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 
 #include <boost/program_options.hpp>
@@ -7,7 +8,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
 

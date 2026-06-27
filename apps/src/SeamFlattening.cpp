@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -12,7 +13,6 @@
 
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
-#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/MeshIO.hpp"
 #include "rt/types/Mesh.hpp"

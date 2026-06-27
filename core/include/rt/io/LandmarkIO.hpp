@@ -2,9 +2,11 @@
 
 /** @file */
 
-#include <opencv2/core.hpp>
-#include "rt/LandmarkRegistrationBase.hpp"
 #include <filesystem>
+
+#include <opencv2/core.hpp>
+
+#include "rt/LandmarkRegistrationBase.hpp"
 
 namespace rt
 {

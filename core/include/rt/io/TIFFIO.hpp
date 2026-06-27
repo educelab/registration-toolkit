@@ -2,9 +2,9 @@
 
 /** @file */
 
-#include <opencv2/core.hpp>
-
 #include <filesystem>
+
+#include <opencv2/core.hpp>
 
 namespace rt::io
 {

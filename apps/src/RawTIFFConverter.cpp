@@ -1,6 +1,6 @@
+#include <filesystem>
 #include <iostream>
 
-#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/TIFFIO.hpp"
 

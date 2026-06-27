@@ -1,8 +1,8 @@
+#include <filesystem>
 #include <iostream>
 
 #include <boost/program_options.hpp>
 
-#include <filesystem>
 #include "rt/io/LandmarkIO.hpp"
 
 using namespace rt;

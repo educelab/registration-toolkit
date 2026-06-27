@@ -2,10 +2,10 @@
 
 /** @file */
 
+#include <filesystem>
+
 #include <itkCompositeTransform.h>
 #include <itkTransform.h>
-
-#include <filesystem>
 
 namespace rt
 {

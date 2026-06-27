@@ -1,10 +1,10 @@
+#include <filesystem>
 #include <iostream>
 
 #include <boost/program_options.hpp>
 #include <educelab/core/types/Mesh.hpp>
 #include <opencv2/core/utils/logger.hpp>
 
-#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/MeshIO.hpp"
 #include "rt/types/Mesh.hpp"

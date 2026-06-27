@@ -2,9 +2,10 @@
 
 /** @file */
 
+#include <filesystem>
+
 #include <opencv2/core.hpp>
 
-#include <filesystem>
 #include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 

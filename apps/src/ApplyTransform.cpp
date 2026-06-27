@@ -1,10 +1,10 @@
+#include <filesystem>
 #include <iostream>
 
 #include <boost/program_options.hpp>
 #include <opencv2/core/utils/logger.hpp>
 
 #include "rt/ImageTransformResampler.hpp"
-#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/types/Transforms.hpp"
 #include "rt/util/ImageConversion.hpp"

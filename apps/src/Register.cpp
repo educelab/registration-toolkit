@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 #include <unordered_map>
 
@@ -10,7 +11,6 @@
 
 #include "rt/Logging.hpp"
 #include "rt/Version.hpp"
-#include <filesystem>
 #include "rt/graph.hpp"
 
 using namespace rt;
