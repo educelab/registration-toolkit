@@ -1,3 +1,5 @@
+tap 'educelab/code'
+
 brew 'cmake'
 brew 'boost'
 brew 'eigen'
