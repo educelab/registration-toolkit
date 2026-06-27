@@ -2,16 +2,16 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
+#include <educelab/core/utils/Filesystem.hpp>
 #include <educelab/core/utils/String.hpp>
 #include <opencv2/core/utils/logger.hpp>
 #include <smgl/Graph.hpp>
 #include <smgl/Graphviz.hpp>
 
+#include "rt/Logging.hpp"
 #include "rt/Version.hpp"
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
-#include "rt/io/FileExtensionFilter.hpp"
-#include "rt/Logging.hpp"
 
 using namespace rt;
 using namespace rt::graph;
@@ -20,8 +20,6 @@ using namespace educelab;
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
 namespace cvl = cv::utils::logging;
-
-static const auto IsFormat = rt::FileExtensionFilter;
 
 auto main(int argc, char* argv[]) -> int
 {
@@ -138,10 +136,10 @@ auto main(int argc, char* argv[]) -> int
     }
 
     // Determine registration type
-    auto is2Dto3D = IsFormat(fixedPath, {"obj"});
+    auto is2Dto3D = is_file_type(fixedPath, "obj");
 
     // Validate paths
-    if (is2Dto3D and not IsFormat(outputPath, {"obj"})) {
+    if (is2Dto3D and not is_file_type(outputPath, "obj")) {
         rt::logger()->error("Registering to a 3D mesh, but requested format {} is not a supported mesh format.", outputPath.extension().string());
         return EXIT_FAILURE;
     }

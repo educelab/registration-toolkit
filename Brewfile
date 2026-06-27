@@ -1,3 +1,5 @@
+tap 'educelab/code'
+
 brew 'cmake'
 brew 'boost'
 brew 'eigen'
@@ -5,3 +7,4 @@ brew 'opencv@4'
 brew 'itk'
 brew 'vtk'
 brew 'spdlog'
+brew 'educelab/code/libcore'

@@ -28,11 +28,26 @@ To build from source, see [Build and Install](#build-and-install) below.
 * VTK 6+
 * libtiff 4.0.9+
     - **Note**: ITK and OpenCV should be linked against the same libtiff build
-    
+* [educelab/libcore](https://github.com/educelab/libcore) 0.3.0+
+    - Provides the canonical `educelab::Mesh3d` and UV map types. It is consumed
+      via `find_package`, so it must be installed on the system before
+      configuring this project. `rt::core` links it as a `PUBLIC` dependency,
+      meaning downstream projects must also be able to find it.
+
 ### Ubuntu 24.04
-Install using apt:
+Install the apt-provided dependencies:
 ```shell
 sudo apt install cmake libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev
+```
+
+libcore is not packaged for apt and must be built and installed from source:
+```shell
+git clone --branch v0.3.0-rc.1 https://github.com/educelab/libcore.git
+cmake -S libcore -B libcore/build -DCMAKE_BUILD_TYPE=Release \
+  -DEDUCE_CORE_BUILD_TESTS=OFF -DEDUCE_CORE_BUILD_DOCS=OFF \
+  -DEDUCE_CORE_BUILD_EXAMPLES=OFF
+cmake --build libcore/build
+sudo cmake --install libcore/build
 ```
 
 ### macOS

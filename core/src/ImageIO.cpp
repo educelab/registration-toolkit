@@ -2,16 +2,16 @@
 
 #include <iostream>
 
+#include <educelab/core/utils/Filesystem.hpp>
 #include <opencv2/imgcodecs.hpp>
 
 #include "rt/Logging.hpp"
-#include "rt/io/FileExtensionFilter.hpp"
 #include "rt/io/TIFFIO.hpp"
 #include "rt/util/ImageConversion.hpp"
 
 namespace fs = rt::filesystem;
 
-static const auto IsFormat = rt::FileExtensionFilter;
+using educelab::is_file_type;
 
 auto rt::ReadImage(const fs::path& path) -> cv::Mat
 {
@@ -20,7 +20,7 @@ auto rt::ReadImage(const fs::path& path) -> cv::Mat
     auto img = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
 
     // If OpenCV failed and is a TIFF, try our reader
-    if (img.empty() and IsFormat(path, {"tif", "tiff"})) {
+    if (img.empty() and is_file_type(path, "tif", "tiff")) {
         rt::logger()->debug("Falling back to rt::ReadRawTIFF");
         img = io::ReadRawTIFF(path);
     }
@@ -42,7 +42,7 @@ void rt::WriteImage(const fs::path& path, const cv::Mat& img)
     }
 
     // Use our TIFF writer
-    if (IsFormat(path, {"tif", "tiff"})) {
+    if (is_file_type(path, "tif", "tiff")) {
         rt::io::WriteTIFF(path, img);
     } else {
         cv::Mat output = img.clone();
@@ -54,7 +54,7 @@ void rt::WriteImage(const fs::path& path, const cv::Mat& img)
                 path.extension().string());
         }
 
-        if (img.channels() == 4 and IsFormat(path, {"jpg", "jpeg"})) {
+        if (img.channels() == 4 and is_file_type(path, "jpg", "jpeg")) {
             rt::logger()->warn(
                 "Image is 4-channel (RGBA) but format {} "
                 "does not support 4-channels. Extra channel "

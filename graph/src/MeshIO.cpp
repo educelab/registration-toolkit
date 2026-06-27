@@ -1,8 +1,10 @@
 #include "rt/graph/MeshIO.hpp"
 
-#include "rt/io/OBJReader.hpp"
-#include "rt/io/OBJWriter.hpp"
+#include <utility>
+
 #include "rt/Logging.hpp"
+#include "rt/io/ImageIO.hpp"
+#include "rt/io/MeshIO.hpp"
 
 using namespace rt;
 
@@ -18,12 +20,11 @@ rtg::MeshReadNode::MeshReadNode()
     registerOutputPort("uvMap", uvMap);
     compute = [this]() {
         rt::logger()->info("Reading mesh: {}", path_.string());
-        io::OBJReader r;
-        r.setPath(path_);
-        mesh_ = r.read();
-        img_ = r.getTextureMat();
-        imgPath_ = r.getTexturePath();
-        uv_ = r.getUVMap();
+        auto result = ReadMesh(path_);
+        mesh_ = result.mesh;
+        img_ = result.texture;
+        imgPath_ = result.texturePath;
+        uv_ = result.uvMap;
     };
 }
 
@@ -40,11 +41,17 @@ void rtg::MeshReadNode::deserialize_(
 }
 
 rtg::MeshWriteNode::MeshWriteNode()
-    : path{&path_}
-    , mesh{&writer_, &io::OBJWriter::setMesh}
-    , image{&writer_, &io::OBJWriter::setTexture}
-    , imageSource{&writer_, &io::OBJWriter::setTextureSource}
-    , uvMap{&writer_, &io::OBJWriter::setUVMap}
+    // image and imageSource share one logical "texture" input: each setter
+    // records itself as the most recent, so the last assignment wins (smgl
+    // ports cannot be un-set, so a fixed precedence would pin the first one).
+    : image{[this](cv::Mat m) {
+        img_ = std::move(m);
+        lastTexture_ = TextureInput::Image;
+    }}
+    , imageSource{[this](filesystem::path p) {
+        imgSource_ = std::move(p);
+        lastTexture_ = TextureInput::Source;
+    }}
 {
     registerInputPort("path", path);
     registerInputPort("mesh", mesh);
@@ -53,18 +60,65 @@ rtg::MeshWriteNode::MeshWriteNode()
     registerInputPort("uvMap", uvMap);
     compute = [this]() {
         rt::logger()->info("Writing mesh: {}", path_.string());
-        writer_.setPath(path_);
-        writer_.write();
+        if (not mesh_) {
+            rt::logger()->warn("No mesh provided; skipping mesh write");
+            return;
+        }
+
+        switch (lastTexture_) {
+            case TextureInput::Image:
+                WriteMesh(path_, *mesh_, uv_, img_);
+                break;
+            case TextureInput::Source:
+                WriteMesh(path_, *mesh_, uv_, imgSource_);
+                break;
+            case TextureInput::None:
+                WriteMesh(path_, *mesh_, uv_);
+                break;
+        }
     };
 }
 
-smgl::Metadata rtg::MeshWriteNode::serialize_(bool, const fs::path&)
+smgl::Metadata rtg::MeshWriteNode::serialize_(
+    const bool useCache, const fs::path& cacheDir)
 {
-    return {{"path", path_.string()}};
+    smgl::Metadata m{{"path", path_.string()}};
+    switch (lastTexture_) {
+        case TextureInput::Image:
+            m["texture"] = "image";
+            if (useCache and not img_.empty()) {
+                WriteImage(cacheDir / "texture.tif", img_);
+                m["image"] = "texture.tif";
+            }
+            break;
+        case TextureInput::Source:
+            m["texture"] = "source";
+            m["imageSource"] = imgSource_.string();
+            break;
+        case TextureInput::None:
+            m["texture"] = "none";
+            break;
+    }
+    return m;
 }
 
 void rtg::MeshWriteNode::deserialize_(
-    const smgl::Metadata& meta, const fs::path&)
+    const smgl::Metadata& meta, const fs::path& cacheDir)
 {
     path_ = meta["path"].get<std::string>();
+    // Graphs written before texture tracking have no "texture" key; treat them
+    // as having written an untextured mesh.
+    const auto texture =
+        meta.contains("texture") ? meta["texture"].get<std::string>() : "none";
+    if (texture == "image") {
+        lastTexture_ = TextureInput::Image;
+        if (meta.contains("image")) {
+            img_ = ReadImage(cacheDir / meta["image"].get<std::string>());
+        }
+    } else if (texture == "source") {
+        lastTexture_ = TextureInput::Source;
+        imgSource_ = meta["imageSource"].get<std::string>();
+    } else {
+        lastTexture_ = TextureInput::None;
+    }
 }

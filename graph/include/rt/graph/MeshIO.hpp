@@ -7,8 +7,7 @@
 #include <smgl/Ports.hpp>
 
 #include "rt/filesystem.hpp"
-#include "rt/io/OBJWriter.hpp"
-#include "rt/types/ITKMesh.hpp"
+#include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 
 namespace rt::graph
@@ -16,7 +15,7 @@ namespace rt::graph
 
 /**
  * @brief Mesh File Reader
- * @see OBJReader
+ * @see rt::ReadMesh
  */
 class MeshReadNode : public smgl::Node
 {
@@ -33,7 +32,7 @@ public:
     /** @name Output Ports */
     /**@{*/
     /** @brief Loaded mesh port */
-    smgl::OutputPort<ITKMesh::Pointer> mesh{&mesh_};
+    smgl::OutputPort<Mesh::Pointer> mesh{&mesh_};
     /** @brief Loaded image port */
     smgl::OutputPort<cv::Mat> image{&img_};
     /** @brief Loaded image path port */
@@ -46,7 +45,7 @@ private:
     /** File path */
     filesystem::path path_;
     /** Loaded mesh */
-    ITKMesh::Pointer mesh_;
+    Mesh::Pointer mesh_;
     /** Loaded image */
     cv::Mat img_;
     /** Loaded image path */
@@ -64,7 +63,7 @@ private:
 
 /**
  * @brief Mesh File Writer
- * @see OBJWriter
+ * @see rt::WriteMesh
  */
 class MeshWriteNode : public smgl::Node
 {
@@ -75,29 +74,46 @@ public:
     /** @name Input Ports */
     /**@{*/
     /** @brief Mesh path port */
-    smgl::InputPort<filesystem::path> path;
+    smgl::InputPort<filesystem::path> path{&path_};
     /** @brief Mesh port */
-    smgl::InputPort<ITKMesh::Pointer> mesh;
-    /** @brief Texture image port */
+    smgl::InputPort<Mesh::Pointer> mesh{&mesh_};
+    /**
+     * @brief Texture image port
+     *
+     * Mutually exclusive with imageSource: whichever of the two received the
+     * most recent update is the one used when writing (smgl ports retain their
+     * last value and cannot be cleared, so recency — not a fixed precedence —
+     * decides). Both setters are wired up in the constructor.
+     */
     smgl::InputPort<cv::Mat> image;
-    /** @brief Texture image source path port */
+    /** @brief Texture image source path port (see image) */
     smgl::InputPort<filesystem::path> imageSource;
     /** @brief UVMap port */
-    smgl::InputPort<UVMap> uvMap;
+    smgl::InputPort<UVMap> uvMap{&uv_};
     /**@}*/
 
 private:
+    /** Which texture input was most recently set */
+    enum class TextureInput { None, Image, Source };
     /** File path */
     filesystem::path path_;
-    /** Mesh writer */
-    io::OBJWriter writer_;
+    /** Mesh to write */
+    Mesh::Pointer mesh_;
+    /** Texture image */
+    cv::Mat img_;
+    /** Texture image source path */
+    filesystem::path imgSource_;
+    /** UV map */
+    UVMap uv_;
+    /** Most recently updated texture input (image vs. source path) */
+    TextureInput lastTexture_{TextureInput::None};
     /** Graph serialize */
     smgl::Metadata serialize_(
-        bool /*unused*/, const filesystem::path& /*unused*/) override;
+        bool useCache, const filesystem::path& cacheDir) override;
     /** Graph deserialize */
     void deserialize_(
         const smgl::Metadata& meta,
-        const filesystem::path& /*unused*/) override;
+        const filesystem::path& cacheDir) override;
 };
 
 }  // namespace rt

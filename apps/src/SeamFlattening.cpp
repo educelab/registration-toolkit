@@ -5,6 +5,7 @@
 #include <OpenABF/OpenABF.hpp>
 #include <boost/program_options.hpp>
 #include <educelab/core/types/Mat.hpp>
+#include <educelab/core/utils/Filesystem.hpp>
 #include <educelab/core/utils/Iteration.hpp>
 #include <educelab/core/utils/String.hpp>
 #include <opencv2/core.hpp>
@@ -12,11 +13,9 @@
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/filesystem.hpp"
-#include "rt/io/FileExtensionFilter.hpp"
 #include "rt/io/ImageIO.hpp"
-#include "rt/io/OBJReader.hpp"
-#include "rt/io/OBJWriter.hpp"
-#include "rt/types/ITKMesh.hpp"
+#include "rt/io/MeshIO.hpp"
+#include "rt/types/Mesh.hpp"
 
 namespace po = boost::program_options;
 namespace fs = rt::filesystem;
@@ -25,54 +24,53 @@ namespace abf = OpenABF;
 
 using ABF = abf::ABFPlusPlus<double>;
 using LSCM = abf::AngleBasedLSCM<double, ABF::Mesh>;
-using Mesh = ABF::Mesh;
+using ABFMesh = ABF::Mesh;
 using Mat = el::Mat<4, 4, double>;
 using namespace rt;
 
 namespace
 {
-auto ITKtoABF(const ITKMesh::Pointer& mesh) -> Mesh::Pointer
+auto MeshToABF(const rt::Mesh::Pointer& mesh) -> ABFMesh::Pointer
 {
-    auto res = Mesh::New();
-    logger()->debug("[ITKtoABF] Copying vertices");
-    for (auto pt = mesh->GetPoints()->Begin(); pt != mesh->GetPoints()->End();
-         ++pt) {
-        res->insert_vertex(pt->Value());
+    auto res = ABFMesh::New();
+    logger()->debug("[MeshToABF] Copying vertices");
+    for (std::size_t vid = 0; vid < mesh->num_vertices(); ++vid) {
+        const auto& v = mesh->vertex(vid);
+        res->insert_vertex(v[0], v[1], v[2]);
     }
 
-    logger()->debug("[ITKtoABF] Copying faces");
-    for (const auto cell : *mesh->GetCells()) {
-        res->insert_face(cell->GetPointIdsContainer());
+    logger()->debug("[MeshToABF] Copying faces");
+    for (std::size_t fid = 0; fid < mesh->num_faces(); ++fid) {
+        res->insert_face(mesh->face(fid));
     }
     res->update_boundary();
     return res;
 }
 
-auto ABFtoITK(const Mesh::Pointer& mesh) -> ITKMesh::Pointer
+auto ABFToMesh(const ABFMesh::Pointer& mesh) -> rt::Mesh::Pointer
 {
-    auto res = ITKMesh::New();
+    auto res = rt::Mesh::New();
 
-    logger()->debug("[ABFtoITK] Copying vertices");
+    logger()->debug("[ABFToMesh] Copying vertices");
     for (const auto& v : mesh->vertices()) {
-        res->SetPoint(v->idx, v->pos.data());
-        res->SetPointData(v->idx, v->normal().data());
+        const auto idx = res->insert_vertex(v->pos[0], v->pos[1], v->pos[2]);
+        const auto n = v->normal();
+        res->vertex(idx).normal = educelab::Vec<double, 3>{n[0], n[1], n[2]};
     }
 
-    ITKCell::CellAutoPointer cell;
-    logger()->debug("[ABFtoITK] Copying faces");
+    logger()->debug("[ABFToMesh] Copying faces");
     for (const auto& f : mesh->faces()) {
-        int idx{0};
-        cell.TakeOwnership(new ITKTriangle);
+        rt::Mesh::Face face;
         for (const auto& e : *f) {
-            cell->SetPointId(idx++, e->vertex->idx);
+            face.push_back(e->vertex->idx);
         }
-        res->SetCell(f->idx, cell);
+        res->insert_face(face);
     }
 
     return res;
 }
 
-auto GetAABB(const Mesh::Pointer& mesh) -> std::pair<abf::Vec3d, abf::Vec3d>
+auto GetAABB(const ABFMesh::Pointer& mesh) -> std::pair<abf::Vec3d, abf::Vec3d>
 {
     abf::Vec3d min, max;
     min.fill(abf::INF<double>);
@@ -89,7 +87,7 @@ auto GetAABB(const Mesh::Pointer& mesh) -> std::pair<abf::Vec3d, abf::Vec3d>
 
 enum class Axis { X, Y, Z };
 
-auto GetArea(const Mesh::Pointer& mesh, Axis axis) -> double
+auto GetArea(const ABFMesh::Pointer& mesh, Axis axis) -> double
 {
     auto [min, max] = GetAABB(mesh);
     if (axis == Axis::X) {
@@ -143,14 +141,14 @@ auto Rotate4x4(const double radians, abf::Vec3d vec) -> Mat
         1};
 }
 
-void ApplyTransform(Mesh::Pointer mesh, const Mat& tfm)
+void ApplyTransform(ABFMesh::Pointer mesh, const Mat& tfm)
 {
     for (std::size_t vid = 0; vid < mesh->num_vertices(); ++vid) {
         mesh->vertex(vid)->pos = matmul(tfm, mesh->vertex(vid)->pos);
     }
 }
 
-void MinimizeBBox(const Mesh::Pointer& mesh, const Axis axis)
+void MinimizeBBox(const ABFMesh::Pointer& mesh, const Axis axis)
 {
     abf::Vec3d vec;
     if (axis == Axis::X) {
@@ -184,7 +182,7 @@ void MinimizeBBox(const Mesh::Pointer& mesh, const Axis axis)
     ApplyTransform(mesh, finalTfm);
 }
 
-auto GetEndpoints(Mesh::Pointer& mesh) -> std::pair<std::size_t, std::size_t>
+auto GetEndpoints(ABFMesh::Pointer& mesh) -> std::pair<std::size_t, std::size_t>
 {
     // Create a mat of 3D points
     const auto nVerts = static_cast<int>(mesh->num_vertices());
@@ -327,14 +325,13 @@ auto main(int argc, const char* argv[]) -> int
     }
 
     logger()->info("Loading mesh: {}", inPath.string());
-    io::OBJReader reader;
-    reader.setPath(inPath);
-    const auto in = reader.read();
+    auto reader = rt::ReadMesh(inPath);
+    const auto in = reader.mesh;
 
     logger()->debug("Converting to HEM");
-    auto hem = ITKtoABF(in);
+    auto hem = MeshToABF(in);
     auto [start, end] = GetEndpoints(hem);
-    auto centered = ABFtoITK(hem);
+    auto centered = ABFToMesh(hem);
 
     logger()->info("Finding seam");
     const auto path = abf::FindEdgePath(hem, start, end);
@@ -359,23 +356,23 @@ auto main(int argc, const char* argv[]) -> int
     logger()->debug("Solving LSCM");
     LSCM::Compute(hem);
 
-    logger()->debug("Converting back to ITK mesh");
-    const auto flat = ABFtoITK(hem);
+    logger()->debug("Converting back to canonical mesh");
+    const auto flat = ABFToMesh(hem);
 
     // Reorder texture
     logger()->info("Reordering texture");
     ReorderUnorganizedTexture reorder;
     reorder.setMesh(flat);
-    reorder.setUVMap(reader.getUVMap());
-    reorder.setTextureMat(reader.getTextureMat());
+    reorder.setUVMap(reader.uvMap);
+    reorder.setTextureMat(reader.texture);
     reorder.setSamplingMode(ReorderUnorganizedTexture::SamplingMode::AutoUV);
     const auto texture = reorder.compute();
 
-    if (FileExtensionFilter(outPath, {"jpg", "jpeg", "png", "tiff", "tif"})) {
+    if (el::is_file_type(outPath, "jpg", "jpeg", "png", "tiff", "tif")) {
         logger()->info("Writing image: {}", outPath.string());
         WriteImage(outPath, texture);
 
-    } else if (FileExtensionFilter(outPath, {"obj"})) {
+    } else if (el::is_file_type(outPath, "obj")) {
         logger()->info("Writing mesh: {}", outPath.string());
         auto mesh = in;
         if (meshType == MeshType::Centered) {
@@ -384,12 +381,7 @@ auto main(int argc, const char* argv[]) -> int
             mesh = flat;
         }
 
-        io::OBJWriter writer;
-        writer.setPath(outPath);
-        writer.setMesh(mesh);
-        writer.setUVMap(reorder.getUVMap());
-        writer.setTexture(texture);
-        writer.write();
+        rt::WriteMesh(outPath, *mesh, reorder.getUVMap(), texture);
     } else {
         logger()->error("Unsupported output format: {}", outPath.string());
     }

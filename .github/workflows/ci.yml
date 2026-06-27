@@ -7,6 +7,8 @@ on:
 
 env:
   BUILD_TYPE: Release
+  # educelab/libcore is not packaged; build + install it from this pinned tag
+  LIBCORE_VERSION: v0.3.0-rc.1
 
 jobs:
   ubuntu-24_04:
@@ -20,6 +22,16 @@ jobs:
         run: |
           sudo apt-get -y update
           sudo apt-get install -y build-essential cmake curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev
+      - name: Build and install libcore
+        run: |
+          git clone https://github.com/educelab/libcore.git /tmp/libcore
+          git -C /tmp/libcore checkout "$LIBCORE_VERSION"
+          cmake -S /tmp/libcore -B /tmp/libcore/build -GNinja \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DEDUCE_CORE_BUILD_TESTS=OFF -DEDUCE_CORE_BUILD_DOCS=OFF -DEDUCE_CORE_BUILD_EXAMPLES=OFF
+          cmake --build /tmp/libcore/build
+          sudo cmake --install /tmp/libcore/build
       - name: Configure
         run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
       - name: Build
@@ -43,6 +55,16 @@ jobs:
           curl -OL https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.sh
           chmod +x cmake-3.28.3-linux-x86_64.sh
           sudo ./cmake-3.28.3-linux-x86_64.sh --skip-license --prefix=/usr/local --exclude-subdir
+      - name: Build and install libcore
+        run: |
+          git clone https://github.com/educelab/libcore.git /tmp/libcore
+          git -C /tmp/libcore checkout "$LIBCORE_VERSION"
+          cmake -S /tmp/libcore -B /tmp/libcore/build -GNinja \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DEDUCE_CORE_BUILD_TESTS=OFF -DEDUCE_CORE_BUILD_DOCS=OFF -DEDUCE_CORE_BUILD_EXAMPLES=OFF
+          cmake --build /tmp/libcore/build
+          sudo cmake --install /tmp/libcore/build
       - name: Configure
         run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
       - name: Build
@@ -56,7 +78,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install dependencies
-        run: brew bundle --file=Brewfile
+        run: |
+          # libcore comes from a third-party tap, which Homebrew now refuses to
+          # load non-interactively until the tap is trusted.
+          brew tap educelab/code
+          brew trust educelab/code
+          brew bundle --file=Brewfile
       - name: Install ninja
         run: brew install ninja
       - name: Configure

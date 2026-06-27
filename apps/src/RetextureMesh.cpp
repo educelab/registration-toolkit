@@ -1,13 +1,13 @@
 #include <iostream>
 
 #include <boost/program_options.hpp>
+#include <educelab/core/types/Mesh.hpp>
 #include <opencv2/core/utils/logger.hpp>
 
 #include "rt/filesystem.hpp"
 #include "rt/io/ImageIO.hpp"
-#include "rt/io/OBJReader.hpp"
-#include "rt/io/OBJWriter.hpp"
-#include "rt/util/CalculateNormals.hpp"
+#include "rt/io/MeshIO.hpp"
+#include "rt/types/Mesh.hpp"
 
 namespace fs = rt::filesystem;
 namespace po = boost::program_options;
@@ -53,28 +53,22 @@ auto main(int argc, char** argv) -> int
 
     // Load mesh
     const fs::path inputPath = parsed["input-mesh"].as<std::string>();
-    rt::io::OBJReader reader;
-    reader.setPath(inputPath);
-    reader.read();
+    auto reader = rt::ReadMesh(inputPath);
 
     // Load the image
     const fs::path imagePath = parsed["texture"].as<std::string>();
 
-    // Compute normals
-    auto mesh = reader.getMesh();
+    // Compute normals (angle-weighted; see ADR 0001)
+    auto mesh = reader.mesh;
     if (parsed["compute-normals"].as<bool>()) {
-        rt::CalculateNormals calcNormals(mesh);
-        mesh = calcNormals.compute();
+        for (std::size_t vid = 0; vid < mesh->num_vertices(); ++vid) {
+            mesh->vertex(vid).normal = educelab::vertex_normal(*mesh, vid);
+        }
     }
 
     // Write the new mesh
     const fs::path outputPath = parsed["output-mesh"].as<std::string>();
-    rt::io::OBJWriter writer;
-    writer.setPath(outputPath);
-    writer.setMesh(mesh);
-    writer.setUVMap(reader.getUVMap());
-    writer.setTextureSource(imagePath);
-    writer.write();
+    rt::WriteMesh(outputPath, *mesh, reader.uvMap, imagePath);
 
     return EXIT_SUCCESS;
 }

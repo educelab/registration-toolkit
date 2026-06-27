@@ -1,6 +1,5 @@
 set(io_srcs
-    src/OBJReader.cpp
-    src/OBJWriter.cpp
+    src/MeshIO.cpp
     src/TIFFIO.cpp
     src/LandmarkIO.cpp
     src/ImageIO.cpp
@@ -8,15 +7,13 @@ set(io_srcs
 )
 
 set(type_srcs
+    src/MeshToVTK.cpp
     src/UVMap.cpp
-    src/ITK2VTK.cpp
     src/Transforms.cpp
-    src/ITKMesh.cpp
 )
 
 set(util_srcs
     src/ImageConversion.cpp
-    src/CalculateNormals.cpp
 )
 
 set(srcs
@@ -55,11 +52,11 @@ target_include_directories(rt_core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${bvh_SOURCE_DIR}/src>
-        $<BUILD_INTERFACE:${libcore_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(rt_core
     PUBLIC
+        educelab::core
         ${RT_FS_LIB}
         opencv_core
         ITKCommon
@@ -79,9 +76,6 @@ target_link_libraries(rt_core
 )
 if(TARGET ITKSmoothing)
     target_link_libraries(rt_core PRIVATE ITKSmoothing)
-endif()
-if(EDUCE_CORE_NEED_TO_NUMERIC_FP)
-    target_compile_definitions(rt_core PRIVATE EDUCE_CORE_NEED_TO_NUMERIC_FP)
 endif()
 target_compile_features(rt_core PUBLIC cxx_std_20)
 set_target_properties(rt_core PROPERTIES
