@@ -78,7 +78,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install dependencies
-        run: brew bundle --file=Brewfile
+        run: |
+          # libcore comes from a third-party tap, which Homebrew now refuses to
+          # load non-interactively until the tap is trusted.
+          brew tap educelab/code
+          brew trust educelab/code
+          brew bundle --file=Brewfile
       - name: Install ninja
         run: brew install ninja
       - name: Configure
