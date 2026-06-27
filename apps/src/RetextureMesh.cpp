@@ -1,9 +1,8 @@
 #include <iostream>
 
 #include <boost/program_options.hpp>
-#include <opencv2/core/utils/logger.hpp>
-
 #include <educelab/core/types/Mesh.hpp>
+#include <opencv2/core/utils/logger.hpp>
 
 #include "rt/filesystem.hpp"
 #include "rt/io/ImageIO.hpp"

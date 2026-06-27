@@ -2,17 +2,16 @@
 #include <unordered_map>
 
 #include <boost/program_options.hpp>
+#include <educelab/core/utils/Filesystem.hpp>
 #include <educelab/core/utils/String.hpp>
 #include <opencv2/core/utils/logger.hpp>
 #include <smgl/Graph.hpp>
 #include <smgl/Graphviz.hpp>
 
-#include <educelab/core/utils/Filesystem.hpp>
-
+#include "rt/Logging.hpp"
 #include "rt/Version.hpp"
 #include "rt/filesystem.hpp"
 #include "rt/graph.hpp"
-#include "rt/Logging.hpp"
 
 using namespace rt;
 using namespace rt::graph;

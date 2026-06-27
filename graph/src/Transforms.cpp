@@ -4,11 +4,11 @@
 #include <educelab/core/utils/String.hpp>
 
 #include "rt/ImageTransformResampler.hpp"
+#include "rt/Logging.hpp"
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
 #include "rt/io/UVMapIO.hpp"
 #include "rt/util/ImageConversion.hpp"
-#include "rt/Logging.hpp"
 
 using namespace educelab;
 
