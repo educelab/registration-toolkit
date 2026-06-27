@@ -81,16 +81,6 @@ jobs:
         run: brew bundle --file=Brewfile
       - name: Install ninja
         run: brew install ninja
-      - name: Build and install libcore
-        run: |
-          git clone https://github.com/educelab/libcore.git /tmp/libcore
-          git -C /tmp/libcore checkout "$LIBCORE_VERSION"
-          cmake -S /tmp/libcore -B /tmp/libcore/build -GNinja \
-            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-            -DCMAKE_INSTALL_PREFIX=/usr/local \
-            -DEDUCE_CORE_BUILD_TESTS=OFF -DEDUCE_CORE_BUILD_DOCS=OFF -DEDUCE_CORE_BUILD_EXAMPLES=OFF
-          cmake --build /tmp/libcore/build
-          sudo cmake --install /tmp/libcore/build
       - name: Configure
         run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
       - name: Build
