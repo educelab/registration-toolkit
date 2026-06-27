@@ -6,7 +6,7 @@
 
 using namespace educelab;
 namespace rtg = rt::graph;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 using Meta = smgl::Metadata;
 

@@ -6,13 +6,13 @@
 
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/MeshIO.hpp"
 #include "rt/types/Mesh.hpp"
 
 namespace po = boost::program_options;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace abf = OpenABF;
 using namespace rt;
 

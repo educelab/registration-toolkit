@@ -4,13 +4,13 @@
 #include <opencv2/core/utils/logger.hpp>
 
 #include "rt/ImageTransformResampler.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/types/Transforms.hpp"
 #include "rt/util/ImageConversion.hpp"
 
 namespace po = boost::program_options;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace cvl = cv::utils::logging;
 
 int main(int argc, char* argv[])

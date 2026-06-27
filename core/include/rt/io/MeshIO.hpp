@@ -4,7 +4,7 @@
 
 #include <opencv2/core.hpp>
 
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 
@@ -20,7 +20,7 @@ struct MeshReadResult {
     /** Loaded texture image (empty if no texture was referenced/found) */
     cv::Mat texture;
     /** Resolved path to the texture image (empty if none) */
-    filesystem::path texturePath;
+    std::filesystem::path texturePath;
 };
 
 /**
@@ -34,7 +34,7 @@ struct MeshReadResult {
  *
  * @throws rt::IOException / std::runtime_error on read failure
  */
-auto ReadMesh(const filesystem::path& path) -> MeshReadResult;
+auto ReadMesh(const std::filesystem::path& path) -> MeshReadResult;
 
 /**
  * @brief Write a mesh (and optional UV map + texture image) to an OBJ/PLY file
@@ -49,7 +49,7 @@ auto ReadMesh(const filesystem::path& path) -> MeshReadResult;
  * @throws rt::IOException / std::runtime_error on write failure
  */
 void WriteMesh(
-    const filesystem::path& path,
+    const std::filesystem::path& path,
     const Mesh& mesh,
     const UVMap& uvMap = {},
     const cv::Mat& texture = cv::Mat());
@@ -67,9 +67,9 @@ void WriteMesh(
  * @throws rt::IOException / std::runtime_error on write failure
  */
 void WriteMesh(
-    const filesystem::path& path,
+    const std::filesystem::path& path,
     const Mesh& mesh,
     const UVMap& uvMap,
-    const filesystem::path& textureSource);
+    const std::filesystem::path& textureSource);
 
 }  // namespace rt

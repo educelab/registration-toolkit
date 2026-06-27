@@ -7,7 +7,7 @@
 
 using namespace rt;
 
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace rtg = rt::graph;
 
 // Enum conversions

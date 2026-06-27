@@ -7,14 +7,14 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
 
 using namespace rt;
 
 namespace po = boost::program_options;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace cvl = cv::utils::logging;
 
 int main(int argc, char* argv[])

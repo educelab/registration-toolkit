@@ -14,7 +14,7 @@
 #include "rt/types/Exceptions.hpp"
 
 using namespace educelab;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 namespace
 {

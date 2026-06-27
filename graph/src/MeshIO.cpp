@@ -8,7 +8,7 @@
 
 using namespace rt;
 
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace rtg = rt::graph;
 
 rtg::MeshReadNode::MeshReadNode()
@@ -48,7 +48,7 @@ rtg::MeshWriteNode::MeshWriteNode()
         img_ = std::move(m);
         lastTexture_ = TextureInput::Image;
     }}
-    , imageSource{[this](filesystem::path p) {
+    , imageSource{[this](std::filesystem::path p) {
         imgSource_ = std::move(p);
         lastTexture_ = TextureInput::Source;
     }}

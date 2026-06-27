@@ -8,7 +8,7 @@
 #include "rt/io/ImageIO.hpp"
 
 using namespace educelab;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 namespace
 {

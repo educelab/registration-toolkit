@@ -7,10 +7,10 @@
 #include <opencv2/core/utils/logger.hpp>
 
 #include "rt/DisegniSegmenter.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace po = boost::program_options;
 namespace cvl = cv::utils::logging;
 

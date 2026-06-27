@@ -3,11 +3,11 @@
 #include <opencv2/core/utils/logger.hpp>
 
 #include "rt/LandmarkDetector.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/io/ImageIO.hpp"
 #include "rt/io/LandmarkIO.hpp"
 
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace cvl = cv::utils::logging;
 
 int main(int argc, const char* argv[])

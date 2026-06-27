@@ -4,7 +4,7 @@
 
 #include <opencv2/core.hpp>
 #include "rt/LandmarkRegistrationBase.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 
 namespace rt
 {
@@ -18,7 +18,7 @@ class LandmarkWriter
 {
 public:
     /** @brief Set the output file path */
-    void setPath(const filesystem::path& p);
+    void setPath(const std::filesystem::path& p);
 
     /**
      * @brief Set the fixed landmarks
@@ -46,7 +46,7 @@ public:
 
 private:
     /** Output path */
-    filesystem::path path_;
+    std::filesystem::path path_;
     /** Fixed landmarks */
     LandmarkContainer fixed_;
     /** Moving landmarks */
@@ -66,10 +66,10 @@ public:
     LandmarkReader() = default;
 
     /** @brief Construct with path */
-    explicit LandmarkReader(filesystem::path landmarksPath);
+    explicit LandmarkReader(std::filesystem::path landmarksPath);
 
     /** @brief Set the path to the Landmarks file */
-    void setLandmarksPath(const filesystem::path& path);
+    void setLandmarksPath(const std::filesystem::path& path);
 
     /** @brief Read the Landmarks file */
     void read();
@@ -82,7 +82,7 @@ public:
 
 private:
     /** Path to the Landmarks file */
-    filesystem::path path_;
+    std::filesystem::path path_;
 
     /** Fixed landmarks container */
     LandmarkContainer fixed_;
@@ -98,7 +98,7 @@ private:
  * To save a Landmarks file (.ldm) of matching pairs, use LandmarkWriter.
  */
 void WriteLandmarkContainer(
-    const filesystem::path& path, const LandmarkContainer& lc);
+    const std::filesystem::path& path, const LandmarkContainer& lc);
 
 /**
  * @brief Read a LandmarkContainer file
@@ -106,6 +106,6 @@ void WriteLandmarkContainer(
  * This loads a list of Landmarks from a LandmarksContainer file (.lc).
  * To read a Landmarks file (.ldm) of matching pairs, use LandmarkReader.
  */
-auto ReadLandmarkContainer(const filesystem::path& path) -> LandmarkContainer;
+auto ReadLandmarkContainer(const std::filesystem::path& path) -> LandmarkContainer;
 
 }  // namespace rt

@@ -9,7 +9,7 @@
 #include "rt/AffineLandmarkRegistration.hpp"
 #include "rt/BSplineLandmarkWarping.hpp"
 #include "rt/LandmarkDetector.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/types/Transforms.hpp"
 
 namespace rt::graph
@@ -74,10 +74,10 @@ private:
     LandmarkContainer movingLdm_;
     /** Graph serialize */
     smgl::Metadata serialize_(
-        bool useCache, const filesystem::path& cacheDir) override;
+        bool useCache, const std::filesystem::path& cacheDir) override;
     /** Graph serialize */
     void deserialize_(
-        const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
+        const smgl::Metadata& meta, const std::filesystem::path& cacheDir) override;
 };
 
 /**
@@ -116,11 +116,11 @@ private:
     /** Computed transform */
     Transform::Pointer tfm_;
     /** Graph serialize */
-    auto serialize_(bool useCache, const filesystem::path& cacheDir)
+    auto serialize_(bool useCache, const std::filesystem::path& cacheDir)
         -> smgl::Metadata override;
     /** Graph deserialize */
     void deserialize_(
-        const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
+        const smgl::Metadata& meta, const std::filesystem::path& cacheDir) override;
 };
 
 /**
@@ -162,10 +162,10 @@ private:
     Transform::Pointer tfm_;
     /** Graph serialize */
     smgl::Metadata serialize_(
-        bool useCache, const filesystem::path& cacheDir) override;
+        bool useCache, const std::filesystem::path& cacheDir) override;
     /** Graph deserialize */
     void deserialize_(
-        const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
+        const smgl::Metadata& meta, const std::filesystem::path& cacheDir) override;
 };
 
 }  // namespace rt

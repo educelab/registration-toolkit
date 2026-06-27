@@ -3,7 +3,7 @@
 #include "rt/Logging.hpp"
 
 namespace rtg = rt::graph;
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 
 rtg::LandmarkReaderNode::LandmarkReaderNode()
 {

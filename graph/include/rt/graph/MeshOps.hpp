@@ -5,7 +5,7 @@
 #include <smgl/Ports.hpp>
 
 #include "rt/ReorderUnorganizedTexture.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/types/Mesh.hpp"
 #include "rt/types/UVMap.hpp"
 
@@ -81,10 +81,10 @@ private:
     cv::Mat outPosition_;
 
     /** Graph serialize */
-    auto serialize_(bool useCache, const filesystem::path& cacheDir)
+    auto serialize_(bool useCache, const std::filesystem::path& cacheDir)
         -> smgl::Metadata override;
     /** Graph deserialize */
     void deserialize_(
-        const smgl::Metadata& meta, const filesystem::path& cacheDir) override;
+        const smgl::Metadata& meta, const std::filesystem::path& cacheDir) override;
 };
 }  // namespace rt

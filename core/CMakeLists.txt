@@ -57,7 +57,6 @@ target_include_directories(rt_core
 target_link_libraries(rt_core
     PUBLIC
         educelab::core
-        ${RT_FS_LIB}
         opencv_core
         ITKCommon
         ITKTransform

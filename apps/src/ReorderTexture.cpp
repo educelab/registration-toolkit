@@ -14,10 +14,10 @@
 #include "rt/Logging.hpp"
 #include "rt/ReorderUnorganizedTexture.hpp"
 #include "rt/Version.hpp"
-#include "rt/filesystem.hpp"
+#include <filesystem>
 #include "rt/graph.hpp"
 
-namespace fs = rt::filesystem;
+namespace fs = std::filesystem;
 namespace po = boost::program_options;
 namespace cvl = cv::utils::logging;
 

@@ -5,7 +5,7 @@
 #include <itkCompositeTransform.h>
 #include <itkTransform.h>
 
-#include "rt/filesystem.hpp"
+#include <filesystem>
 
 namespace rt
 {
@@ -18,7 +18,7 @@ using CompositeTransform = itk::CompositeTransform<double, 2>;
 
 /** @brief Write Transform to a file */
 void WriteTransform(
-    const filesystem::path& path, const Transform::Pointer& transform);
+    const std::filesystem::path& path, const Transform::Pointer& transform);
 
 /**
  * @copydoc WriteTransform
@@ -27,11 +27,11 @@ void WriteTransform(
  * cast itk::Pointers of derived types to base types.
  */
 template <typename T>
-void WriteTransform(const filesystem::path& path, const T& transform)
+void WriteTransform(const std::filesystem::path& path, const T& transform)
 {
     WriteTransform(path, Transform::Pointer(transform.GetPointer()));
 }
 
 /** @brief Read Transform from a file */
-auto ReadTransform(const filesystem::path& path) -> Transform::Pointer;
+auto ReadTransform(const std::filesystem::path& path) -> Transform::Pointer;
 }  // namespace rt
