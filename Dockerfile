@@ -35,6 +35,7 @@ RUN apt update \
       locales \
       nano \
       ninja-build \
+      nlohmann-json3-dev \
       tzdata \
       vim \
       wget \
@@ -82,6 +83,31 @@ RUN git clone https://github.com/educelab/libcore.git /tmp/libcore \
     && cmake --build /tmp/libcore-build \
     && cmake --install /tmp/libcore-build \
     && rm -rf /tmp/libcore /tmp/libcore-build \
+    && ldconfig
+
+# Build and install educelab smgl from source
+# smgl is not packaged for apt; rt::graph links it as a PUBLIC dependency, so it
+# must be installed on the system (see cmake/FindDependencies.cmake). Build
+# against the system nlohmann_json (SMGL_BUILD_JSON=OFF): the in-source JSON
+# build is EXCLUDE_FROM_ALL and is never installed, so smgl's config could not
+# resolve find_dependency(nlohmann_json) downstream.
+ARG SMGL_VERSION=v0.11.0-rc.1
+RUN git clone https://github.com/educelab/smgl.git /tmp/smgl \
+    && git -C /tmp/smgl checkout "${SMGL_VERSION}" \
+    && cmake \
+      -S /tmp/smgl \
+      -B /tmp/smgl-build \
+      -GNinja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DBUILD_SHARED_LIBS=ON \
+      -DSMGL_BUILD_JSON=OFF \
+      -DSMGL_USE_BOOSTFS=OFF \
+      -DSMGL_BUILD_TESTS=OFF \
+      -DSMGL_BUILD_DOCS=OFF \
+    && cmake --build /tmp/smgl-build \
+    && cmake --install /tmp/smgl-build \
+    && rm -rf /tmp/smgl /tmp/smgl-build \
     && ldconfig
 
 # Raise ImageMagick's resource limits so it can process large scans.

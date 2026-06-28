@@ -28,13 +28,11 @@ endif()
 find_package(TIFF REQUIRED)
 
 ### smgl ###
-find_package(nlohmann_json 3.9.1 QUIET)
-if(nlohmann_json_FOUND)
-    option(RT_BUILD_JSON "Build JSON library from source" off)
-else()
-    option(RT_BUILD_JSON "Build JSON library from source" on)
-endif()
-include(Buildsmgl)
+# rt::graph PUBLIC-links smgl::smgl, so smgl must be installed on the system for
+# downstream projects to resolve it (a FetchContent build is not installed).
+# smgl's own config resolves its dependencies (e.g. nlohmann_json). See
+# cmake/Config.cmake.in.
+find_package(smgl 0.11.0 CONFIG REQUIRED)
 
 ### bvh ###
 include(Buildbvh)
