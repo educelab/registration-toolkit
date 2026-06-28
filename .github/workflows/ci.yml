@@ -7,8 +7,10 @@ on:
 
 env:
   BUILD_TYPE: Release
-  # educelab/libcore is not packaged; build + install it from this pinned tag
+  # educelab/libcore and educelab/smgl are not packaged; build + install them
+  # from these pinned tags
   LIBCORE_VERSION: v0.3.0-rc.1
+  SMGL_VERSION: v0.11.0-rc.1
 
 jobs:
   ubuntu-24_04:
@@ -21,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get -y update
-          sudo apt-get install -y build-essential cmake curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev
+          sudo apt-get install -y build-essential cmake curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev nlohmann-json3-dev
       - name: Build and install libcore
         run: |
           git clone https://github.com/educelab/libcore.git /tmp/libcore
@@ -32,6 +34,17 @@ jobs:
             -DEDUCE_CORE_BUILD_TESTS=OFF -DEDUCE_CORE_BUILD_DOCS=OFF -DEDUCE_CORE_BUILD_EXAMPLES=OFF
           cmake --build /tmp/libcore/build
           sudo cmake --install /tmp/libcore/build
+      - name: Build and install smgl
+        run: |
+          git clone https://github.com/educelab/smgl.git /tmp/smgl
+          git -C /tmp/smgl checkout "$SMGL_VERSION"
+          cmake -S /tmp/smgl -B /tmp/smgl/build -GNinja \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DSMGL_BUILD_JSON=OFF -DSMGL_USE_BOOSTFS=OFF \
+            -DSMGL_BUILD_TESTS=OFF -DSMGL_BUILD_DOCS=OFF
+          cmake --build /tmp/smgl/build
+          sudo cmake --install /tmp/smgl/build
       - name: Configure
         run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
       - name: Build
@@ -49,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get -y update
-          sudo apt-get install -y build-essential curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev
+          sudo apt-get install -y build-essential curl libeigen3-dev git ninja-build libopencv-dev libvtk9-dev libvtk9-qt-dev libboost-program-options-dev libinsighttoolkit5-dev libspdlog-dev nlohmann-json3-dev
       - name: Install newer CMake
         run: |
           curl -OL https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.sh
@@ -65,6 +78,17 @@ jobs:
             -DEDUCE_CORE_BUILD_TESTS=OFF -DEDUCE_CORE_BUILD_DOCS=OFF -DEDUCE_CORE_BUILD_EXAMPLES=OFF
           cmake --build /tmp/libcore/build
           sudo cmake --install /tmp/libcore/build
+      - name: Build and install smgl
+        run: |
+          git clone https://github.com/educelab/smgl.git /tmp/smgl
+          git -C /tmp/smgl checkout "$SMGL_VERSION"
+          cmake -S /tmp/smgl -B /tmp/smgl/build -GNinja \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DSMGL_BUILD_JSON=OFF -DSMGL_USE_BOOSTFS=OFF \
+            -DSMGL_BUILD_TESTS=OFF -DSMGL_BUILD_DOCS=OFF
+          cmake --build /tmp/smgl/build
+          sudo cmake --install /tmp/smgl/build
       - name: Configure
         run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
       - name: Build

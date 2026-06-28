@@ -7,5 +7,24 @@ find_dependency(spdlog 1.9.0 CONFIG REQUIRED)
 # rt::core PUBLIC-links educelab::core, so consumers need it on the system
 find_dependency(EduceLabCore 0.3.0 CONFIG REQUIRED)
 
+# rt::graph PUBLIC-links smgl::smgl; smgl's config pulls in its own deps
+find_dependency(smgl 0.11.0 CONFIG REQUIRED)
+
+# rt::core PUBLIC-links OpenCV, ITK, and VTK targets. With a static build its
+# PRIVATE deps (TIFF plus extra OpenCV/ITK/VTK modules) also leak into the link
+# interface via $<LINK_ONLY:...>, so consumers must be able to import them all.
+# Mirror the versions resolved in cmake/FindDependencies.cmake.
+find_dependency(OpenCV 4)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS_EQUAL 15)
+    find_dependency(ITK 5.4)
+else()
+    find_dependency(ITK)
+endif()
+find_dependency(VTK)
+if(VTK_VERSION_MAJOR VERSION_LESS 8.9)
+    include(${VTK_USE_FILE})
+endif()
+find_dependency(TIFF)
+
 include("${CMAKE_CURRENT_LIST_DIR}/@targets_export_name@.cmake")
 check_required_components("@PROJECT_NAME@")
