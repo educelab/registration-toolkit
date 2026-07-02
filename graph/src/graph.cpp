@@ -13,41 +13,44 @@ static auto RegisterNodesImpl() -> bool
 
     // clang-format off
     // ImageIO
-    registered &= smgl::RegisterNode<
-        ReadImageNode,
-        WriteImageNode,
-        WriteImageSeriesNode>();
+    registered &= smgl::RegisterNodes(
+        SMGL_NODE(rt::graph::ReadImageNode),
+        SMGL_NODE(rt::graph::WriteImageNode),
+        SMGL_NODE(rt::graph::WriteImageSeriesNode));
 
     // ImageOps
-    registered &= smgl::RegisterNode<
-        ColorConvertNode,
-        PositionMapTransformNode>();
+    registered &= smgl::RegisterNodes(
+        SMGL_NODE(rt::graph::ColorConvertNode),
+        SMGL_NODE(rt::graph::PositionMapTransformNode));
 
     // Landmark Registration
-    registered &= smgl::RegisterNode<
-        CompositeTransformNode,
-        LandmarkReaderNode,
-        LandmarkDetectorNode,
-        LandmarkWriterNode,
-        AffineLandmarkRegistrationNode,
-        BSplineLandmarkWarpingNode>();
+    registered &= smgl::RegisterNodes(
+        SMGL_NODE(rt::graph::CompositeTransformNode),
+        SMGL_NODE(rt::graph::LandmarkReaderNode),
+        SMGL_NODE(rt::graph::LandmarkDetectorNode),
+        SMGL_NODE(rt::graph::LandmarkWriterNode),
+        SMGL_NODE(rt::graph::AffineLandmarkRegistrationNode),
+        SMGL_NODE(rt::graph::BSplineLandmarkWarpingNode));
 
     // Transforms
-    registered &= smgl::RegisterNode<
-        ImageResampleNode,
-        TransformSeriesResampleNode,
-        TransformLandmarksNode,
-        WriteTransformNode,
-        TransformUVMapNode>();
+    registered &= smgl::RegisterNodes(
+        SMGL_NODE(rt::graph::ImageResampleNode),
+        SMGL_NODE(rt::graph::TransformSeriesResampleNode),
+        SMGL_NODE(rt::graph::TransformLandmarksNode),
+        SMGL_NODE(rt::graph::WriteTransformNode),
+        SMGL_NODE(rt::graph::TransformUVMapNode));
 
     // Deformable Registration
-    registered &= smgl::RegisterNode<DeformableRegistrationNode>();
+    registered &= smgl::RegisterNodes(
+        SMGL_NODE(rt::graph::DeformableRegistrationNode));
 
     // MeshIO
-    registered &= smgl::RegisterNode<MeshReadNode, MeshWriteNode>();
+    registered &= smgl::RegisterNodes(
+        SMGL_NODE(rt::graph::MeshReadNode),
+        SMGL_NODE(rt::graph::MeshWriteNode));
 
     // MeshOps
-    registered &= smgl::RegisterNode<ReorderTextureNode>();
+    registered &= smgl::RegisterNodes(SMGL_NODE(rt::graph::ReorderTextureNode));
     // clang-format on
 
     return registered;
