@@ -10,7 +10,7 @@ env:
   # educelab/libcore and educelab/smgl are not packaged; build + install them
   # from these pinned tags
   LIBCORE_VERSION: v0.3.0-rc.1
-  SMGL_VERSION: v0.11.0-rc.1
+  SMGL_VERSION: v0.11.0-rc.2
 
 jobs:
   ubuntu-24_04:

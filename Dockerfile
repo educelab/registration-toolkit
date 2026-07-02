@@ -91,7 +91,7 @@ RUN git clone https://github.com/educelab/libcore.git /tmp/libcore \
 # against the system nlohmann_json (SMGL_BUILD_JSON=OFF): the in-source JSON
 # build is EXCLUDE_FROM_ALL and is never installed, so smgl's config could not
 # resolve find_dependency(nlohmann_json) downstream.
-ARG SMGL_VERSION=v0.11.0-rc.1
+ARG SMGL_VERSION=v0.11.0-rc.2
 RUN git clone https://github.com/educelab/smgl.git /tmp/smgl \
     && git -C /tmp/smgl checkout "${SMGL_VERSION}" \
     && cmake \
