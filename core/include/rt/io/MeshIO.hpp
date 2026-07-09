@@ -3,6 +3,7 @@
 /** @file */
 
 #include <filesystem>
+#include <vector>
 
 #include <opencv2/core.hpp>
 
@@ -18,10 +19,16 @@ struct MeshReadResult {
     Mesh::Pointer mesh;
     /** Loaded UV map (empty if the file had no texture coordinates) */
     UVMap uvMap;
-    /** Loaded texture image (empty if no texture was referenced/found) */
-    cv::Mat texture;
-    /** Resolved path to the texture image (empty if none) */
-    std::filesystem::path texturePath;
+    /**
+     * Loaded texture images, one per referenced material, indexed by UV chart.
+     * A referenced-but-missing image is kept as an empty `cv::Mat` so the vector
+     * stays aligned with the UV map's chart indices (chart i ↔ textures[i]).
+     * Empty when the file references no textures. Consumers that expect a single
+     * texture should use `textures.front()` (guarding on `textures.empty()`).
+     */
+    std::vector<cv::Mat> textures;
+    /** Resolved paths to the texture images, aligned with @ref textures */
+    std::vector<std::filesystem::path> texturePaths;
 };
 
 /**

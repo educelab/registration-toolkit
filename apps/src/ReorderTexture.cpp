@@ -335,16 +335,12 @@ auto main(int argc, char* argv[]) -> int
     auto reader = graph.insertNode<MeshReadNode>();
     reader->path = inputPath;
 
-    // We don't support RGBA textures
-    auto convert = graph.insertNode<ColorConvertNode>();
-    convert->imageIn = reader->image;
-    convert->channels = 3;
-
-    // Reorder the texture
+    // Reorder the texture. ReorderUnorganizedTexture normalizes each input
+    // image to 8-bit, 3-channel internally, so no ColorConvertNode is needed.
     auto reorder = graph.insertNode<ReorderTextureNode>();
     reorder->meshIn = reader->mesh;
     reorder->uvMapIn = reader->uvMap;
-    reorder->imageIn = convert->imageOut;
+    reorder->imagesIn = reader->images;
     reorder->samplingOrigin = samplingOrigin;
     reorder->samplingMode = sampleMode;
     reorder->sampleRate = sampleRate;
