@@ -105,11 +105,20 @@ auto rt::ReadMesh(const fs::path& path) -> rt::MeshReadResult
     result.uvMap = FlipV(result.uvMap);
 
     // Resolve and load every referenced texture, keeping the vectors aligned
-    // with the UV map's chart indices (chart i ↔ textures[i]). A missing image
-    // is stored as an empty cv::Mat / empty path so alignment is preserved.
+    // with the UV map's chart indices (chart i ↔ textures[i]). A chart whose
+    // material declares no map_Kd (empty path) or whose image is missing is
+    // stored as an empty cv::Mat / empty path so alignment is preserved; the
+    // reorder step no-ops on empty charts.
     result.textures.reserve(texturePaths.size());
     result.texturePaths.reserve(texturePaths.size());
     for (const auto& rel : texturePaths) {
+        // A material without a map_Kd comes through as an empty path. Keep the
+        // slot empty rather than resolving it against the OBJ's parent dir.
+        if (rel.empty()) {
+            result.texturePaths.emplace_back();
+            result.textures.emplace_back();
+            continue;
+        }
         fs::path texPath = path.parent_path() / rel.string();
         if (fs::exists(texPath)) {
             result.texturePaths.push_back(texPath);
