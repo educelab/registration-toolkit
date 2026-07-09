@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include <smgl/Node.hpp>
@@ -35,8 +36,8 @@ public:
     /**@{*/
     /** @brief Mesh port */
     smgl::InputPort<Mesh::Pointer> meshIn;
-    /** @brief Input texture image port */
-    smgl::InputPort<cv::Mat> imageIn;
+    /** @brief Input texture images port (indexed by UV chart) */
+    smgl::InputPort<std::vector<cv::Mat>> imagesIn;
     /** @brief Input UV Map port */
     smgl::InputPort<UVMap> uvMapIn;
     /** @copydoc ReorderUnorganizedTexture::samplingOrigin() */

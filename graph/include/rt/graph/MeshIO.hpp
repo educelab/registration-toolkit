@@ -3,6 +3,7 @@
 /** @file */
 
 #include <filesystem>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include <smgl/Node.hpp>
@@ -34,10 +35,18 @@ public:
     /**@{*/
     /** @brief Loaded mesh port */
     smgl::OutputPort<Mesh::Pointer> mesh{&mesh_};
-    /** @brief Loaded image port */
-    smgl::OutputPort<cv::Mat> image{&img_};
-    /** @brief Loaded image path port */
-    smgl::OutputPort<std::filesystem::path> imagePath{&imgPath_};
+    /**
+     * @brief First loaded image port (convenience; equals images[0])
+     *
+     * Stopgap scalar view of @ref images for single-texture consumers (e.g.
+     * registration). The canonical texture output is the plural @ref images;
+     * this port will go away once downstream consumers accept the image vector
+     * directly.
+     */
+    smgl::OutputPort<cv::Mat> image{
+        [this] { return imgs_.empty() ? cv::Mat() : imgs_.front(); }};
+    /** @brief All loaded texture images, indexed by UV chart */
+    smgl::OutputPort<std::vector<cv::Mat>> images{&imgs_};
     /** @brief Load UV Map port */
     smgl::OutputPort<UVMap> uvMap{&uv_};
     /**@}*/
@@ -47,10 +56,8 @@ private:
     std::filesystem::path path_;
     /** Loaded mesh */
     Mesh::Pointer mesh_;
-    /** Loaded image */
-    cv::Mat img_;
-    /** Loaded image path */
-    std::filesystem::path imgPath_;
+    /** All loaded texture images, indexed by UV chart */
+    std::vector<cv::Mat> imgs_;
     /** Loaded UV map */
     UVMap uv_;
     /** Graph serialize */

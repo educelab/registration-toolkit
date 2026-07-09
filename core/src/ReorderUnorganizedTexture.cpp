@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 #include <bvh/v2/bvh.h>
 #include <bvh/v2/default_builder.h>
@@ -26,6 +27,7 @@
 
 #include "rt/Logging.hpp"
 #include "rt/types/MeshToVTK.hpp"
+#include "rt/util/ImageConversion.hpp"
 
 using Scalar = double;
 using Vector3 = bvh::v2::Vec<Scalar, 3>;
@@ -112,18 +114,16 @@ auto NearZero(T val, T eps = 1e-7) -> bool
     return std::abs(val) <= eps;
 }
 
-// Calculate the pixel density of the UV map
+// Calculate the average pixel density of the UV map. Each face's UVs are scaled
+// by the dimensions of the texture image for its chart, so a multi-chart mesh
+// with differently-sized textures contributes each region at its own density.
 auto ComputeUVDensity(
     const rt::Mesh& mesh,
     const rt::UVMap& uv,
-    const double imgWidth,
-    const double imgHeight) -> double
+    const std::vector<cv::Mat>& imgs) -> double
 {
     double density{0};
     std::size_t count{0};
-
-    auto maxXIdx = imgWidth - 1;
-    auto maxYIdx = imgHeight - 1;
 
     // For each face
     for (std::size_t fi = 0; fi < mesh.num_faces(); ++fi) {
@@ -136,6 +136,14 @@ auto ComputeUVDensity(
         if (not(uv.has(fi, 0) and uv.has(fi, 1) and uv.has(fi, 2))) {
             continue;
         }
+
+        // Skip faces whose chart has no usable image
+        const auto chart = uv.get_coordinate(fi, 0).chart;
+        if (chart >= imgs.size() or imgs[chart].empty()) {
+            continue;
+        }
+        const auto maxXIdx = imgs[chart].cols - 1.0;
+        const auto maxYIdx = imgs[chart].rows - 1.0;
 
         // Get the 3D vertices
         std::array<cv::Vec3d, 3> pts;
@@ -519,9 +527,22 @@ void ReorderUnorganizedTexture::setMesh(const Mesh::Pointer& mesh)
 
 void ReorderUnorganizedTexture::setUVMap(const rt::UVMap& uv) { inputUV_ = uv; }
 
-void ReorderUnorganizedTexture::setTextureMat(const cv::Mat& img)
+void ReorderUnorganizedTexture::setTextureMats(const std::vector<cv::Mat>& imgs)
 {
-    inputTexture_ = img;
+    // Normalize each image to 8-bit, 3-channel (BGR). Empty images are kept in
+    // place so the vector stays indexable by UV chart. See setTextureMats() docs
+    // for the bit-depth/channel-support caveat.
+    inputTextures_.clear();
+    inputTextures_.reserve(imgs.size());
+    for (const auto& img : imgs) {
+        if (img.empty()) {
+            inputTextures_.emplace_back();
+            continue;
+        }
+        auto out = rt::QuantizeImage(img, CV_8U);
+        out = rt::ColorConvertImage(out, 3);
+        inputTextures_.push_back(std::move(out));
+    }
 }
 
 void ReorderUnorganizedTexture::setSamplingOrigin(const SamplingOrigin o)
@@ -676,11 +697,6 @@ auto rt::UndistortNormalized(
 
 auto ReorderUnorganizedTexture::getUVMap() -> rt::UVMap { return outputUV_; }
 
-auto ReorderUnorganizedTexture::getTextureMat() -> cv::Mat
-{
-    return outputTexture_;
-}
-
 auto ReorderUnorganizedTexture::getDepthMap() -> cv::Mat
 {
     return outputDepthMap_;
@@ -785,8 +801,8 @@ void ReorderUnorganizedTexture::create_texture_()
             rows = static_cast<int>(sampleDim_);
             break;
         case SamplingMode::AutoUV:
-            sampleRate = ::ComputeUVDensity(
-                *inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
+            sampleRate =
+                ::ComputeUVDensity(*inputMesh_, inputUV_, inputTextures_);
             cols = static_cast<int>(std::ceil(xLen / sampleRate));
             rows = static_cast<int>(std::ceil(yLen / sampleRate));
             break;
@@ -834,7 +850,10 @@ void ReorderUnorganizedTexture::create_texture_()
             break;
     }
 
-    const bool haveTexture = not inputTexture_.empty();
+    const bool haveTexture = std::any_of(
+        inputTextures_.begin(), inputTextures_.end(),
+        [](const cv::Mat& m) { return not m.empty(); });
+    missingCharts_.clear();
     for (auto [v, u] : range2D(rows, cols)) {
         // Sample through the pixel center to avoid a half-pixel bias
         auto uOffset = (u + 0.5) * sampleRate * normedX;
@@ -870,11 +889,14 @@ void ReorderUnorganizedTexture::create_texture_()
         // Sample the surface color into the output texture
         if (haveTexture) {
             const auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
-            const auto inter = hit.value().intersection;
-            outputTexture_.at<cv::Vec3b>(v, u) =
-                sample_surface_color_(cellId, inter.u, inter.v);
+            if (const auto* img = resolve_chart_image_(cellId)) {
+                const auto inter = hit.value().intersection;
+                outputTexture_.at<cv::Vec3b>(v, u) =
+                    sample_surface_color_(*img, cellId, inter.u, inter.v);
+            }
         }
     }
+    report_missing_charts_();
 
     outputUV_ = CreateUVMap(mesh, origin, xAxis, yAxis);
 }
@@ -886,10 +908,12 @@ void ReorderUnorganizedTexture::create_texture_camera_()
 
     // Resolve camera parameters (auto-derive if not explicitly provided). The
     // auto camera is sized to preserve the input texture's pixel density.
+    const bool haveTexture = std::any_of(
+        inputTextures_.begin(), inputTextures_.end(),
+        [](const cv::Mat& m) { return not m.empty(); });
     double texDensity{0.0};
-    if (not inputTexture_.empty()) {
-        texDensity = ::ComputeUVDensity(
-            *inputMesh_, inputUV_, inputTexture_.cols, inputTexture_.rows);
+    if (haveTexture) {
+        texDensity = ::ComputeUVDensity(*inputMesh_, inputUV_, inputTextures_);
     }
     const ProjectionParams cam =
         projParamsSet_ ? projParams_ : ::AutoCamera(mesh, texDensity);
@@ -931,7 +955,7 @@ void ReorderUnorganizedTexture::create_texture_camera_()
     const auto diag = cv::norm(bbMax - bbMin);
     const auto far = (cv::norm(camCenter - 0.5 * (bbMin + bbMax)) + diag) * 2.0;
 
-    const bool haveTexture = not inputTexture_.empty();
+    missingCharts_.clear();
     for (auto [v, u] : range2D(rows, cols)) {
         // Pinhole ray through the pixel center: dir = R^-1 * K^-1 * [u, v, 1].
         // Undistort the normalized coords first so the ray matches the ideal
@@ -967,18 +991,34 @@ void ReorderUnorganizedTexture::create_texture_camera_()
         // Sample the surface color into the output texture
         if (haveTexture) {
             const auto cellId = bvh.prim_ids[hit.value().primitiveIdx];
-            const auto inter = hit.value().intersection;
-            outputTexture_.at<cv::Vec3b>(v, u) =
-                sample_surface_color_(cellId, inter.u, inter.v);
+            if (const auto* img = resolve_chart_image_(cellId)) {
+                const auto inter = hit.value().intersection;
+                outputTexture_.at<cv::Vec3b>(v, u) =
+                    sample_surface_color_(*img, cellId, inter.u, inter.v);
+            }
         }
     }
+    report_missing_charts_();
 
     outputUV_ = ::CreateProjectiveUVMap(mesh, cam);
 }
 
+auto ReorderUnorganizedTexture::resolve_chart_image_(
+    const std::size_t cellId) const -> const cv::Mat*
+{
+    // The face's texture is the chart carried by its corner-0 UV coordinate,
+    // matching how libcore groups faces by chart on write.
+    const auto chart = inputUV_.get_coordinate(cellId, 0).chart;
+    if (chart >= inputTextures_.size() or inputTextures_[chart].empty()) {
+        missingCharts_.push_back(chart);
+        return nullptr;
+    }
+    return &inputTextures_[chart];
+}
+
 auto ReorderUnorganizedTexture::sample_surface_color_(
-    const std::size_t cellId, const double interU, const double interV) const
-    -> cv::Vec3b
+    const cv::Mat& img, const std::size_t cellId, const double interU,
+    const double interV) const -> cv::Vec3b
 {
     // Precondition: reorder UV maps map every corner of every triangle. Both
     // CreateUVMap and CreateProjectiveUVMap insert one coordinate per cell
@@ -1001,12 +1041,33 @@ auto ReorderUnorganizedTexture::sample_surface_color_(
     const cv::Vec3d bCoord{interU, interV, 1 - interU - interV};
     const auto cPoint = ::BaryToXYZ(bCoord, uvPts[1], uvPts[2], uvPts[0]);
 
-    // Convert the UV position to pixel coordinates (in orig image)
-    const auto x = static_cast<float>(cPoint[0] * (inputTexture_.cols - 1));
-    const auto y = static_cast<float>(cPoint[1] * (inputTexture_.rows - 1));
+    // Convert the UV position to pixel coordinates (in the chart's image)
+    const auto x = static_cast<float>(cPoint[0] * (img.cols - 1));
+    const auto y = static_cast<float>(cPoint[1] * (img.rows - 1));
 
     // Bilinear interpolate color
     cv::Mat subRect;
-    cv::getRectSubPix(inputTexture_, {1, 1}, {x, y}, subRect);
+    cv::getRectSubPix(img, {1, 1}, {x, y}, subRect);
     return subRect.at<cv::Vec3b>(0, 0);
+}
+
+void ReorderUnorganizedTexture::report_missing_charts_() const
+{
+    if (missingCharts_.empty()) {
+        return;
+    }
+    std::sort(missingCharts_.begin(), missingCharts_.end());
+    missingCharts_.erase(
+        std::unique(missingCharts_.begin(), missingCharts_.end()),
+        missingCharts_.end());
+
+    std::string list;
+    for (std::size_t i = 0; i < missingCharts_.size(); ++i) {
+        list += (i == 0 ? "" : ", ") + std::to_string(missingCharts_[i]);
+    }
+    logger()->warn(
+        "No usable texture image for UV chart(s) {}; those surface regions were "
+        "left uncolored in the output texture",
+        list);
+    missingCharts_.clear();
 }

@@ -74,7 +74,7 @@ void from_json(const Json& j, ProjectionParams& p)
 rtg::ReorderTextureNode::ReorderTextureNode()
     : Node{true}
     , meshIn{&reorder_, &ReorderUnorganizedTexture::setMesh}
-    , imageIn{&reorder_, &ReorderUnorganizedTexture::setTextureMat}
+    , imagesIn{&reorder_, &ReorderUnorganizedTexture::setTextureMats}
     , uvMapIn{&reorder_, &ReorderUnorganizedTexture::setUVMap}
     , samplingOrigin{&reorder_, &ReorderUnorganizedTexture::setSamplingOrigin}
     , samplingMode{&reorder_, &ReorderUnorganizedTexture::setSamplingMode}
@@ -92,7 +92,7 @@ rtg::ReorderTextureNode::ReorderTextureNode()
     , positionMapOut{&outPosition_}
 {
     registerInputPort("mesh", meshIn);
-    registerInputPort("imageIn", imageIn);
+    registerInputPort("imagesIn", imagesIn);
     registerInputPort("uvMapIn", uvMapIn);
     registerInputPort("samplingOrigin", samplingOrigin);
     registerInputPort("samplingMode", samplingMode);

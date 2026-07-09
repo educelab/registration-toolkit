@@ -364,7 +364,7 @@ auto main(int argc, const char* argv[]) -> int
     ReorderUnorganizedTexture reorder;
     reorder.setMesh(flat);
     reorder.setUVMap(reader.uvMap);
-    reorder.setTextureMat(reader.texture);
+    reorder.setTextureMats(reader.textures);
     reorder.setSamplingMode(ReorderUnorganizedTexture::SamplingMode::AutoUV);
     const auto texture = reorder.compute();
 

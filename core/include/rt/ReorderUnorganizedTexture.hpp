@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 
@@ -107,8 +108,27 @@ public:
     void setMesh(const Mesh::Pointer& mesh);
     /** @brief Set the input UV map for the mesh */
     void setUVMap(const UVMap& uv);
-    /** @brief Set the input, unorganized texture image */
-    void setTextureMat(const cv::Mat& img);
+
+    /**
+     * @brief Set the input, unorganized texture images
+     *
+     * The mesh may be textured by more than one image (a multi-chart UV map,
+     * e.g. a multi-material OBJ). Images are indexed by UV chart: the color for
+     * a face is sampled from `imgs[chart]`, where `chart` is the atlas chart
+     * index carried by the face's UV coordinates (see rt::UVMap). A
+     * single-texture mesh is simply the one-element case (all faces chart 0).
+     *
+     * Faces whose chart has no corresponding image (chart index out of range or
+     * an empty `cv::Mat`) are left uncolored in the output; compute() emits a
+     * single warning naming the affected chart(s).
+     *
+     * @note Each image is normalized to 8-bit, 3-channel (BGR) on input via
+     * rt::QuantizeImage + rt::ColorConvertImage. Higher bit depths and other
+     * channel layouts are not yet preserved through the reorder pipeline; see
+     * https://github.com/educelab/registration-toolkit/issues/19 for the
+     * tracking issue on native multi-bit-depth/channel support.
+     */
+    void setTextureMats(const std::vector<cv::Mat>& imgs);
 
     /** @copydoc samplingOrigin() */
     void setSamplingOrigin(SamplingOrigin o);
@@ -193,9 +213,6 @@ public:
     /** @brief Get the output UV map */
     auto getUVMap() -> UVMap;
 
-    /** @brief Get the output texture image */
-    auto getTextureMat() -> cv::Mat;
-
     /**
      * @brief Get depth map
      *
@@ -225,19 +242,33 @@ private:
     void create_texture_camera_();
 
     /**
-     * Bilinearly sample the input texture color for a ray hit on face @p cellId
-     * with barycentric intersection (@p interU, @p interV). Assumes the input
-     * texture is non-empty.
+     * Resolve the input texture image a face samples from. Returns the image
+     * for the face's UV chart, or nullptr if that chart has no usable image
+     * (chart index out of range or an empty image); the offending chart index
+     * is recorded in missingCharts_ for a single aggregated warning.
+     */
+    [[nodiscard]] auto resolve_chart_image_(std::size_t cellId) const
+        -> const cv::Mat*;
+
+    /**
+     * Bilinearly sample @p img for a ray hit on face @p cellId with barycentric
+     * intersection (@p interU, @p interV). Assumes @p img is non-empty.
      */
     [[nodiscard]] auto sample_surface_color_(
-        std::size_t cellId, double interU, double interV) const -> cv::Vec3b;
+        const cv::Mat& img, std::size_t cellId, double interU, double interV)
+        const -> cv::Vec3b;
+
+    /** Emit one aggregated warning for charts with no usable image, if any */
+    void report_missing_charts_() const;
 
     /** Input mesh */
     Mesh::Pointer inputMesh_;
     /** Input UV map */
     UVMap inputUV_;
-    /** Input texture image */
-    cv::Mat inputTexture_;
+    /** Input texture images, indexed by UV chart */
+    std::vector<cv::Mat> inputTextures_;
+    /** Chart indices encountered with no usable image (for warning) */
+    mutable std::vector<std::size_t> missingCharts_;
 
     /** Sample origin */
     SamplingOrigin sampleOrigin_{SamplingOrigin::TopLeft};
