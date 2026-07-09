@@ -16,7 +16,6 @@ rtg::MeshReadNode::MeshReadNode()
     registerInputPort("path", path);
     registerOutputPort("mesh", mesh);
     registerOutputPort("image", image);
-    registerOutputPort("imagePath", imagePath);
     registerOutputPort("images", images);
     registerOutputPort("uvMap", uvMap);
     compute = [this]() {
@@ -25,11 +24,6 @@ rtg::MeshReadNode::MeshReadNode()
         mesh_ = result.mesh;
         imgs_ = result.textures;
         uv_ = result.uvMap;
-        // The single image/imagePath ports expose the first texture (chart 0)
-        // for downstream single-image consumers (e.g. registration).
-        img_ = imgs_.empty() ? cv::Mat() : imgs_.front();
-        imgPath_ = result.texturePaths.empty() ? std::filesystem::path()
-                                               : result.texturePaths.front();
     };
 }
 
