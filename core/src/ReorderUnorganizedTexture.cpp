@@ -211,7 +211,11 @@ auto AlignVectorToVector(cv::Vec3d a, const cv::Vec3d& b, const cv::Vec3d& c) ->
     if (almost_equal(a.dot(b), -1., 1e-3)) {
         auto d = abs(c) - cv::Vec3d{1., 1., 1.};
         d = copysign(cv::Vec3d{1., 1., 1.}, d);
-        r.diag() = d;
+        // Write the diagonal element-wise. Assigning a Vec to Mat::diag()
+        // instead converts it to a cv::Scalar and fills the whole diagonal
+        // with d[0], turning this 180-degree rotation about the c axis into a
+        // reflection (det = -1) that silently mirrors the sampled surface.
+        cv::Mat(d, false).copyTo(r.diag());
     }
 
     // Next, return early for parallel vectors at high precision
