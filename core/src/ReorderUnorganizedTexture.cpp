@@ -184,15 +184,19 @@ auto ComputeUVDensity(
     return density;
 }
 
-auto ComputeOBB(vtkPolyData* mesh)
+// An oriented bounding box as vtkOBBTree reports it: one corner plus three
+// edge vectors (unit direction scaled by the extent along that direction).
+struct OBBResult {
+    cv::Vec3d origin{0, 0, 0};
+    cv::Vec3d xAxis{1, 0, 0};
+    cv::Vec3d yAxis{0, 1, 0};
+    cv::Vec3d zAxis{0, 0, 1};
+    std::array<double, 3> size{1, 1, 1};
+};
+
+auto ComputeOBB(vtkPolyData* mesh) -> OBBResult
 {
-    struct obb_result {
-        cv::Vec3d origin{0, 0, 0};
-        cv::Vec3d xAxis{1, 0, 0};
-        cv::Vec3d yAxis{0, 1, 0};
-        cv::Vec3d zAxis{0, 0, 1};
-        std::array<double, 3> size{1, 1, 1};
-    } res;
+    OBBResult res;
 
     const auto obbTree = vtkSmartPointer<vtkOBBTree>::New();
     obbTree->ComputeOBB(
@@ -200,6 +204,124 @@ auto ComputeOBB(vtkPolyData* mesh)
         res.size.data());
 
     return res;
+}
+
+// Resolve the direction ambiguity in an OBB basis using the world axes.
+//
+// vtkOBBTree orders its axes by extent and gives them arbitrary signs, and
+// documents no handedness guarantee, so the frame create_texture_() derives
+// from the OBB is unrelated to the frame the mesh arrives in. When the caller
+// guarantees the input is already canonically oriented -- mesh right -> +X,
+// mesh up -> +Y, surface normal -> +Z -- the world axes pin the OBB down.
+//
+// Deriving the required signs from the conventions downstream of here:
+// create_texture_() rotates OBB x -> +X and OBB y -> -Y, then samples with u
+// along -X, v along +Y, tracing rays from z_max toward -Z (the default
+// !useFirstIntersection_). In terms of the *input* axes that makes
+//
+//     u = -obb.x,  v = -obb.y,  sampled face points along -obb.z
+//
+// The canonical image wants u = +X (image right = mesh right), v = -Y (image
+// down = mesh down) and the +Z-facing surface sampled, so we need
+//
+//     obb.x = -X,  obb.y = +Y,  obb.z = -Z
+//
+// which is a consistent right-handed triple: (-X) x (+Y) = -Z. Only the axis
+// directions change; the box, its extents and therefore the sampling geometry
+// (and its foreshortening) are exactly what they were.
+auto CanonicalizeOBB(const OBBResult& obb) -> OBBResult
+{
+    static const std::array<cv::Vec3d, 3> world{
+        cv::Vec3d{1, 0, 0}, cv::Vec3d{0, 1, 0}, cv::Vec3d{0, 0, 1}};
+
+    const std::array<cv::Vec3d, 3> edge{obb.xAxis, obb.yAxis, obb.zAxis};
+    std::array<cv::Vec3d, 3> dir{};
+    for (const auto i : range(3)) {
+        const auto len = cv::norm(edge[i]);
+        dir[i] = (len > 0.) ? cv::Vec3d(edge[i] / len) : world[i];
+    }
+
+    // Assign OBB axes to image axes by world-axis agreement rather than by
+    // extent. For a near-square fragment the extent ordering can put the OBB
+    // axes on the opposite world axes, a 90-degree error that no amount of
+    // sign correction can undo.
+    std::array<std::size_t, 3> pick{0, 1, 2};
+    std::array<bool, 3> used{false, false, false};
+    for (const auto axis : range(2)) {
+        std::size_t best{0};
+        double bestDot{-1.};
+        for (const auto i : range(3)) {
+            if (used[i]) {
+                continue;
+            }
+            if (const auto d = std::abs(dir[i].dot(world[axis])); d > bestDot) {
+                bestDot = d;
+                best = static_cast<std::size_t>(i);
+            }
+        }
+        pick[axis] = best;
+        used[best] = true;
+    }
+    const auto unused = std::find(used.begin(), used.end(), false);
+    pick[2] = static_cast<std::size_t>(std::distance(used.begin(), unused));
+
+    std::array<cv::Vec3d, 3> ax{edge[pick[0]], edge[pick[1]], edge[pick[2]]};
+
+    // Flip the in-plane axes to the signs derived above. Negating an edge
+    // vector moves the box corner to the far end of that edge, so the origin
+    // has to follow or the result no longer describes the same box.
+    OBBResult out;
+    out.origin = obb.origin;
+    const std::array<double, 2> wantSign{-1., 1.};  // x . X < 0, y . Y > 0
+    for (const auto i : range(2)) {
+        if (ax[i].dot(world[i]) * wantSign[i] < 0.) {
+            out.origin += ax[i];
+            ax[i] = -ax[i];
+        }
+    }
+
+    // Complete the triple as right-handed, putting the third axis on -Z. Flip
+    // the edge vtkOBBTree gave us rather than substituting the cross product,
+    // so the axis keeps its exact extent and orthogonality.
+    //
+    // This is bookkeeping as far as create_texture_() is concerned: it builds
+    // its realignment from the first two axes alone and consumes zAxis only in
+    // the (flip-invariant) centroid translation, before overwriting it from the
+    // realigned AABB. Which face gets sampled is decided by that realignment
+    // being a proper rotation, not by this block -- see AlignVectorToVector.
+    // Kept so the returned box is self-consistent for callers that do read it.
+    if (ax[2].dot(ax[0].cross(ax[1])) < 0.) {
+        out.origin += ax[2];
+        ax[2] = -ax[2];
+    }
+
+    out.xAxis = ax[0];
+    out.yAxis = ax[1];
+    out.zAxis = ax[2];
+    // Permuted with the axes to keep size[i] describing axis i. That is the
+    // invariant worth holding; VTK's extra guarantee that the list is sorted
+    // descending was only a side effect of its axes being extent-ordered.
+    out.size = {obb.size[pick[0]], obb.size[pick[1]], obb.size[pick[2]]};
+    return out;
+}
+
+// Compute the OBB a sampling frame is derived from.
+//
+// The OBB's axis directions are arbitrary, which leaves the orientation of the
+// output image unrelated to the orientation of the input mesh. Under
+// OrientationMode::Canonical the caller guarantees a canonically oriented
+// input, so the world axes pin the box down first. Every frame-deriving path
+// wants both halves of this, and doing only the first silently reintroduces
+// the arbitrary orientation.
+auto ComputeOBB(
+    vtkPolyData* mesh,
+    const ReorderUnorganizedTexture::OrientationMode orientation) -> OBBResult
+{
+    auto obb = ComputeOBB(mesh);
+    if (orientation == ReorderUnorganizedTexture::OrientationMode::Canonical) {
+        obb = CanonicalizeOBB(obb);
+    }
+    return obb;
 }
 
 auto AlignVectorToVector(cv::Vec3d a, const cv::Vec3d& b, const cv::Vec3d& c) -> cv::Mat
@@ -211,7 +333,11 @@ auto AlignVectorToVector(cv::Vec3d a, const cv::Vec3d& b, const cv::Vec3d& c) ->
     if (almost_equal(a.dot(b), -1., 1e-3)) {
         auto d = abs(c) - cv::Vec3d{1., 1., 1.};
         d = copysign(cv::Vec3d{1., 1., 1.}, d);
-        r.diag() = d;
+        // Write the diagonal element-wise. Assigning a Vec to Mat::diag()
+        // instead converts it to a cv::Scalar and fills the whole diagonal
+        // with d[0], turning this 180-degree rotation about the c axis into a
+        // reflection (det = -1) that silently mirrors the sampled surface.
+        cv::Mat(d, false).copyTo(r.diag());
     }
 
     // Next, return early for parallel vectors at high precision
@@ -398,14 +524,27 @@ auto BuildBVH(vtkPolyData* mesh) -> BVHData
 // looking along its shortest OBB axis at the centroid. @c sampleRate is the
 // target surface sampling in mesh units per pixel (e.g. the input texture's
 // pixel density); pass <= 0 to fall back to a fixed long-edge size.
-auto AutoCamera(vtkPolyData* mesh, double sampleRate)
+auto AutoCamera(
+    vtkPolyData* mesh,
+    double sampleRate,
+    ReorderUnorganizedTexture::OrientationMode orientation)
     -> ReorderUnorganizedTexture::ProjectionParams
 {
-    auto [origin, xAxis, yAxis, zAxis, size] = ComputeOBB(mesh);
+    using OrientationMode = ReorderUnorganizedTexture::OrientationMode;
+
+    const auto obb = ComputeOBB(mesh, orientation);
+    const auto& [origin, xAxis, yAxis, zAxis, size] = obb;
     const cv::Vec3d centroid = origin + 0.5 * (xAxis + yAxis + zAxis);
     const auto ex = cv::norm(xAxis);
     const auto ey = cv::norm(yAxis);
-    const cv::Vec3d nrm = cv::normalize(zAxis);  // shortest (thin) axis
+    cv::Vec3d nrm = cv::normalize(zAxis);  // shortest (thin) axis
+    if (orientation == OrientationMode::Canonical) {
+        // CanonicalizeOBB resolves the thin axis onto world -Z, which is what
+        // the orthographic sampling frame wants. A camera wants the opposite:
+        // it belongs on the +Z side, looking back at the surface that faces
+        // the viewer.
+        nrm = -nrm;
+    }
 
     // Place the camera off the surface for mild perspective
     auto d = 1.5 * std::max(ex, ey);
@@ -443,7 +582,11 @@ auto AutoCamera(vtkPolyData* mesh, double sampleRate)
         f = std::min(width * d / (ex * 1.1), height * d / (ey * 1.1));
     }
 
-    // Look-at, OpenCV convention (+Z forward into scene, +Y down)
+    // Look-at, OpenCV convention (+Z forward into scene, +Y down).
+    // Under Canonical the box gives forward = -Z and worldUp = +Y, hence
+    // right = (-Z) x (+Y) = +X and down = (-Z) x (+X) = -Y: image right along
+    // world +X and image down along world -Y, the same convention the
+    // orthographic path produces.
     const cv::Vec3d forward = cv::normalize(centroid - eye);
     const cv::Vec3d worldUp = cv::normalize(yAxis);
     const cv::Vec3d right = cv::normalize(forward.cross(worldUp));
@@ -605,6 +748,16 @@ auto ReorderUnorganizedTexture::projectionMode() const -> ProjectionMode
     return projectionMode_;
 }
 
+void ReorderUnorganizedTexture::setOrientationMode(const OrientationMode m)
+{
+    orientationMode_ = m;
+}
+
+auto ReorderUnorganizedTexture::orientationMode() const -> OrientationMode
+{
+    return orientationMode_;
+}
+
 void ReorderUnorganizedTexture::setProjectionParams(const ProjectionParams& params)
 {
     projParams_ = params;
@@ -720,9 +873,10 @@ auto ReorderUnorganizedTexture::compute() -> cv::Mat
 
 void ReorderUnorganizedTexture::create_texture_()
 {
-    // Compute mesh's (rough) OBB
+    // Compute mesh's (rough) OBB, pinned to the world axes under Canonical
     auto mesh = rt::MeshToVTK(*inputMesh_);
-    auto [origin, xAxis, yAxis, zAxis, size] = ComputeOBB(mesh);
+    auto obb = ComputeOBB(mesh, orientationMode_);
+    auto [origin, xAxis, yAxis, zAxis, size] = obb;
 
     // We're going to transform the mesh to be axis-aligned. Not strictly
     // necessary, but lets us more easily minimize the XY area of the OBB
@@ -916,7 +1070,8 @@ void ReorderUnorganizedTexture::create_texture_camera_()
         texDensity = ::ComputeUVDensity(*inputMesh_, inputUV_, inputTextures_);
     }
     const ProjectionParams cam =
-        projParamsSet_ ? projParams_ : ::AutoCamera(mesh, texDensity);
+        projParamsSet_ ? projParams_
+                       : ::AutoCamera(mesh, texDensity, orientationMode_);
     if (const auto err = rt::ValidateProjectionParams(cam)) {
         throw std::runtime_error("Camera projection: " + *err);
     }

@@ -27,6 +27,15 @@ _Avoid_: storage origin, anchor
 A contiguous region of a UV Map backed by a single texture. A multi-chart mesh
 partitions its faces across several textures.
 
+**Canonical orientation**:
+A mesh frame in which the surface's right runs along +X, its up along +Y, and its
+outward normal along +Z. Established upstream of the toolkit (by an orientation step
+in the reconstruction pipeline), not inferred here. Reordering can be told to
+resolve its sampling frame against the world axes on the assumption the input is
+canonically oriented; by default it takes the bounding box's arbitrary axis
+directions instead. See `docs/adr/0003`.
+_Avoid_: aligned, upright
+
 **Aspect**:
 The width-to-height ratio of the output texture space a UV Map is intended to fill.
 Travels with the UV Map and is the fallback a rasterizer uses to size a generated

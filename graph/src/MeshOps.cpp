@@ -37,6 +37,12 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ProjectionMode, {
     {ProjectionMode::Orthographic, "orthographic"},
     {ProjectionMode::Camera, "camera"},
 })
+
+using OrientationMode = rtg::ReorderTextureNode::OrientationMode;
+NLOHMANN_JSON_SERIALIZE_ENUM(OrientationMode, {
+    {OrientationMode::OBB, "obb"},
+    {OrientationMode::Canonical, "canonical"},
+})
 // clang-format on
 
 // Pinhole camera intrinsics + extrinsics
@@ -82,6 +88,7 @@ rtg::ReorderTextureNode::ReorderTextureNode()
     , sampleDim{&reorder_, &ReorderUnorganizedTexture::setSampleDim}
     , useFirstIntersection{&reorder_, &ReorderUnorganizedTexture::setUseFirstIntersection}
     , projectionMode{&reorder_, &ReorderUnorganizedTexture::setProjectionMode}
+    , orientationMode{&reorder_, &ReorderUnorganizedTexture::setOrientationMode}
     , projectionParams{[this](const ProjectionParams& p) {
         reorder_.setProjectionParams(p);
         haveProjParams_ = true;
@@ -100,6 +107,7 @@ rtg::ReorderTextureNode::ReorderTextureNode()
     registerInputPort("sampleDim", sampleDim);
     registerInputPort("useFirstIntersection", useFirstIntersection);
     registerInputPort("projectionMode", projectionMode);
+    registerInputPort("orientationMode", orientationMode);
     registerInputPort("projectionParams", projectionParams);
     registerOutputPort("imageOut", imageOut);
     registerOutputPort("uvMapOut", uvMapOut);
@@ -125,6 +133,7 @@ auto rtg::ReorderTextureNode::serialize_(
         {"sampleDim", reorder_.sampleDim()},
         {"useFirstIntersection", reorder_.useFirstIntersection()},
         {"projectionMode", reorder_.projectionMode()},
+        {"orientationMode", reorder_.orientationMode()},
     };
     if (haveProjParams_) {
         m["projectionParams"] = reorder_.projectionParams();
@@ -170,6 +179,10 @@ void rtg::ReorderTextureNode::deserialize_(
     }
     if (meta.contains("projectionMode")) {
         reorder_.setProjectionMode(meta["projectionMode"].get<ProjectionMode>());
+    }
+    if (meta.contains("orientationMode")) {
+        reorder_.setOrientationMode(
+            meta["orientationMode"].get<OrientationMode>());
     }
     if (meta.contains("uvMap")) {
         const auto file = meta["uvMap"].get<std::string>();

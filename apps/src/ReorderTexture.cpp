@@ -211,12 +211,35 @@ auto main(int argc, char* argv[]) -> int
         ("sampling-dim,d", po::value<std::size_t>()->default_value(800),
              "If --sampling-mode is 'width' or 'height', the length of the "
              "corresponding output dimension in pixels")
+        ("orientation", po::value<std::string>()->default_value("obb"),
+             "How the orientation of the output image is resolved: 'obb' "
+             "(default) or 'canonical'. The bounding box used to build the "
+             "sampling frame has arbitrary axis directions, so with 'obb' the "
+             "output orientation is unrelated to the input mesh's: the texture "
+             "may come out rotated or mirrored, and repeat scans of one object "
+             "are not comparable. 'canonical' resolves that against the world "
+             "axes, so image +u runs along the box axis that agrees with "
+             "world +X, image +v along the one that agrees with world -Y, and "
+             "the world +Z-facing surface is the one sampled. Only "
+             "meaningful if the input mesh is already canonically oriented "
+             "(right along +X, up along +Y, surface normal along +Z). This "
+             "removes the 90-degree, 180-degree and mirrored outputs, but not "
+             "the sub-degree in-plane rotation the bounding-box area "
+             "minimization applies, and may pick a different pixel scale than "
+             "'obb' under --sampling-mode width/height. The image plane stays "
+             "parallel to the mesh's own fitted base plane, not to world XY, "
+             "so a mesh whose normal is a few degrees off +Z keeps that tilt. "
+             "With --projection orthographic it requires --sampling-origin tl "
+             "and the default last-intersection sampling. With --projection "
+             "camera it orients the auto-derived camera the same way, and is "
+             "ignored if --camera-file is given.")
         ("use-first-intersection,f", "This program assumes that "
              "the projection origin is behind the base plane of the sampled "
              "mesh. Thus, the last mesh intersection point will lie on the "
              "visible surface. If instead the projection origin is in front of "
              "the base plane, the first mesh intersection point lies on the "
-             "visible surface.");
+             "visible surface. Incompatible with --orientation canonical, "
+             "which resolves the +Z-facing surface as the sampled one.");
 
     po::options_description projOptions("Projection Options");
     projOptions.add_options()
@@ -300,6 +323,54 @@ auto main(int argc, char* argv[]) -> int
     auto projectionMode = (projStr == "camera") ? ProjectionMode::Camera
                                                 : ProjectionMode::Orthographic;
 
+    // Resolve how the sampling frame's orientation is pinned down
+    using OrientationMode = ReorderUnorganizedTexture::OrientationMode;
+    auto orientStr = to_lower_copy(parsed["orientation"].as<std::string>());
+    if (orientStr != "obb" and orientStr != "canonical") {
+        rt::logger()->error("Unknown orientation mode: {}", orientStr);
+        return EXIT_FAILURE;
+    }
+    auto orientationMode = (orientStr == "canonical")
+                               ? OrientationMode::Canonical
+                               : OrientationMode::OBB;
+    // Canonical orients the auto-derived camera too, but an explicit camera is
+    // used exactly as given.
+    if (orientationMode == OrientationMode::Canonical and
+        projStr == "camera" and parsed.count("camera-file") > 0) {
+        rt::logger()->warn(
+            "--orientation canonical is ignored when an explicit --camera-file "
+            "is given");
+    }
+    // The sampling origin negates the sampling axes downstream of
+    // canonicalization, so any origin but tl silently undoes it -- 'tr' mirrors
+    // the image, which is the very failure canonical mode exists to prevent.
+    // Only the orthographic path consumes the sampling origin.
+    if (orientationMode == OrientationMode::Canonical and
+        projStr == "orthographic" and
+        samplingOrigin != SamplingOrigin::TopLeft) {
+        rt::logger()->error(
+            "--orientation canonical requires --sampling-origin tl (got '{}'), "
+            "which would flip the sampling axes and undo the canonical "
+            "orientation",
+            originStr);
+        return EXIT_FAILURE;
+    }
+    // Canonicalization's sign derivation assumes the default ray march (from
+    // z_max toward -Z), which is what makes the world +Z-facing surface the
+    // sampled one. --use-first-intersection reverses the march, so the
+    // -Z-facing surface is sampled instead -- on a folded or multi-layer
+    // fragment that silently images the wrong layer. Only the orthographic
+    // path consumes it.
+    if (orientationMode == OrientationMode::Canonical and
+        projStr == "orthographic" and useFirstIntersection) {
+        rt::logger()->error(
+            "--orientation canonical is incompatible with "
+            "--use-first-intersection, which reverses the ray march and "
+            "samples the world -Z-facing surface rather than the +Z-facing "
+            "one canonical mode resolves");
+        return EXIT_FAILURE;
+    }
+
     // Parse an explicit camera, if one was given
     std::optional<ProjectionParams> projParams;
     if (projStr == "camera") {
@@ -347,6 +418,7 @@ auto main(int argc, char* argv[]) -> int
     reorder->sampleDim = sampleDim;
     reorder->useFirstIntersection = useFirstIntersection;
     reorder->projectionMode = projectionMode;
+    reorder->orientationMode = orientationMode;
     if (projParams) {
         reorder->projectionParams = *projParams;
     }

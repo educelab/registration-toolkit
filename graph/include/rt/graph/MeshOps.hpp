@@ -26,6 +26,8 @@ public:
     using SamplingMode = ReorderUnorganizedTexture::SamplingMode;
     /** @see ReorderUnorganizedTexture::ProjectionMode */
     using ProjectionMode = ReorderUnorganizedTexture::ProjectionMode;
+    /** @see ReorderUnorganizedTexture::OrientationMode */
+    using OrientationMode = ReorderUnorganizedTexture::OrientationMode;
     /** @see ReorderUnorganizedTexture::ProjectionParams */
     using ProjectionParams = ReorderUnorganizedTexture::ProjectionParams;
 
@@ -52,6 +54,8 @@ public:
     smgl::InputPort<bool> useFirstIntersection;
     /** @copydoc ReorderUnorganizedTexture::setProjectionMode() */
     smgl::InputPort<ProjectionMode> projectionMode;
+    /** @copydoc ReorderUnorganizedTexture::setOrientationMode() */
+    smgl::InputPort<OrientationMode> orientationMode;
     /** @copydoc ReorderUnorganizedTexture::setProjectionParams() */
     smgl::InputPort<ProjectionParams> projectionParams;
     /**@}*/

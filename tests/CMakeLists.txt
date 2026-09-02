@@ -37,6 +37,7 @@ endforeach()
 ## Tests that exercise render graph nodes ##
 set(graph_tests
     src/TestImageOps.cpp
+    src/TestMeshOpsSerialization.cpp
 )
 
 foreach(src ${graph_tests})

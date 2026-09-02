@@ -111,7 +111,15 @@ jobs:
       - name: Install ninja
         run: brew install ninja
       - name: Configure
-        run: cmake -S . -B build-$BUILD_TYPE -GNinja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DRT_BUILD_TESTS=ON
+        # Homebrew's unversioned opencv is now 5.x, so the Brewfile pins
+        # opencv@4. Versioned formulae are keg-only and never symlinked into
+        # the prefix, so find_package(OpenCV 4) cannot see it -- point CMake
+        # at the keg explicitly.
+        run: |
+          cmake -S . -B build-$BUILD_TYPE -GNinja \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DRT_BUILD_TESTS=ON \
+            -DOpenCV_DIR="$(brew --prefix opencv@4)/lib/cmake/opencv4"
       - name: Build
         run: cmake --build build-$BUILD_TYPE
       - name: Test
