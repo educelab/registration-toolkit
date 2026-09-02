@@ -67,7 +67,7 @@ RUN git clone --depth 1 --branch "${ITK_VERSION}" https://github.com/InsightSoft
 # Build and install educelab libcore from source
 # libcore is not packaged for apt; rt::core links it as a PUBLIC dependency, so
 # it must be installed on the system (see cmake/FindDependencies.cmake).
-ARG LIBCORE_VERSION=v0.3.0-rc.1
+ARG LIBCORE_VERSION=v0.3.0-rc.2
 RUN git clone https://github.com/educelab/libcore.git /tmp/libcore \
     && git -C /tmp/libcore checkout "${LIBCORE_VERSION}" \
     && cmake \
