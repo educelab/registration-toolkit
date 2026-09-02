@@ -305,6 +305,25 @@ auto CanonicalizeOBB(const OBBResult& obb) -> OBBResult
     return out;
 }
 
+// Compute the OBB a sampling frame is derived from.
+//
+// The OBB's axis directions are arbitrary, which leaves the orientation of the
+// output image unrelated to the orientation of the input mesh. Under
+// OrientationMode::Canonical the caller guarantees a canonically oriented
+// input, so the world axes pin the box down first. Every frame-deriving path
+// wants both halves of this, and doing only the first silently reintroduces
+// the arbitrary orientation.
+auto ComputeOBB(
+    vtkPolyData* mesh,
+    const ReorderUnorganizedTexture::OrientationMode orientation) -> OBBResult
+{
+    auto obb = ComputeOBB(mesh);
+    if (orientation == ReorderUnorganizedTexture::OrientationMode::Canonical) {
+        obb = CanonicalizeOBB(obb);
+    }
+    return obb;
+}
+
 auto AlignVectorToVector(cv::Vec3d a, const cv::Vec3d& b, const cv::Vec3d& c) -> cv::Mat
 {
     // Identity initial rotation
@@ -513,11 +532,8 @@ auto AutoCamera(
 {
     using OrientationMode = ReorderUnorganizedTexture::OrientationMode;
 
-    auto obb = ComputeOBB(mesh);
-    if (orientation == OrientationMode::Canonical) {
-        obb = CanonicalizeOBB(obb);
-    }
-    auto [origin, xAxis, yAxis, zAxis, size] = obb;
+    const auto obb = ComputeOBB(mesh, orientation);
+    const auto& [origin, xAxis, yAxis, zAxis, size] = obb;
     const cv::Vec3d centroid = origin + 0.5 * (xAxis + yAxis + zAxis);
     const auto ex = cv::norm(xAxis);
     const auto ey = cv::norm(yAxis);
@@ -857,17 +873,9 @@ auto ReorderUnorganizedTexture::compute() -> cv::Mat
 
 void ReorderUnorganizedTexture::create_texture_()
 {
-    // Compute mesh's (rough) OBB
+    // Compute mesh's (rough) OBB, pinned to the world axes under Canonical
     auto mesh = rt::MeshToVTK(*inputMesh_);
-    auto obb = ComputeOBB(mesh);
-
-    // The OBB's axis directions are arbitrary, which leaves the orientation of
-    // the output image unrelated to the orientation of the input mesh. If the
-    // caller guarantees a canonically oriented input, use the world axes to
-    // pin the OBB down before deriving the sampling frame from it.
-    if (orientationMode_ == OrientationMode::Canonical) {
-        obb = CanonicalizeOBB(obb);
-    }
+    auto obb = ComputeOBB(mesh, orientationMode_);
     auto [origin, xAxis, yAxis, zAxis, size] = obb;
 
     // We're going to transform the mesh to be axis-aligned. Not strictly

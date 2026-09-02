@@ -471,39 +471,55 @@ TEST(ReorderOrientation, DefaultsToOBB)
         rt::ReorderUnorganizedTexture::OrientationMode::OBB);
 }
 
-// vtkOBBTree orders its axes by extent, so on a near-square fragment the
-// in-plane axes can arrive on the opposite world axes -- a 90-degree error
-// that correcting signs alone cannot undo. Canonicalization assigns axes by
-// world-axis agreement, so the result holds even when the longer side is y.
-TEST(ReorderOrientation, CanonicalHandlesNearSquareSheet)
+// vtkOBBTree orders its axes by extent, so when the longer side is y the
+// in-plane axes arrive on the opposite world axes -- a 90-degree error that
+// correcting signs alone cannot undo. Canonicalization assigns axes by
+// world-axis agreement, so the result holds either way.
+TEST(ReorderOrientation, CanonicalHandlesPermutedAxes)
 {
     using OrientationMode = rt::ReorderUnorganizedTexture::OrientationMode;
-    const auto out =
-        ReorderQuadrantSheet(OrientationMode::Canonical, 1.5, 1.52);
-    ASSERT_FALSE(out.empty());
-    EXPECT_EQ(QuadrantColor(out, false, false), kGreen) << "top-left";
-    EXPECT_EQ(QuadrantColor(out, true, false), kRed) << "top-right";
-    EXPECT_EQ(QuadrantColor(out, false, true), kBlue) << "bottom-left";
-    EXPECT_EQ(QuadrantColor(out, true, true), kWhite) << "bottom-right";
+
+    const auto check = [](double xHalf, double yHalf) {
+        const auto out =
+            ReorderQuadrantSheet(OrientationMode::Canonical, xHalf, yHalf);
+        ASSERT_FALSE(out.empty());
+        EXPECT_EQ(QuadrantColor(out, false, false), kGreen) << "top-left";
+        EXPECT_EQ(QuadrantColor(out, true, false), kRed) << "top-right";
+        EXPECT_EQ(QuadrantColor(out, false, true), kBlue) << "bottom-left";
+        EXPECT_EQ(QuadrantColor(out, true, true), kWhite) << "bottom-right";
+    };
+
+    // 3.00 x 3.04: near-square, so which way the fit orders the in-plane axes
+    // is up to the fit. 3.0 x 4.0 forces the permutation instead -- the longer
+    // side is y, so extent ordering puts the box's first axis on world Y and
+    // the assignment rule has to move it back.
+    check(1.5, 1.52);
+    check(1.5, 2.00);
 }
 
-// Canonicalization reassigns axes by world agreement, so on a near-square sheet
-// the image width can end up measured along the other extent. Pinned here
-// because it is a real consequence of the assignment rule, not a bug: the
-// sampling *plane* is unchanged, but the derived pixel scale is not.
+// Canonicalization reassigns axes by world agreement, so where that disagrees
+// with the extent ordering the image width ends up measured along the other
+// extent. Pinned here because it is a real consequence of the assignment rule,
+// not a bug: the sampling *plane* is unchanged, but the derived pixel scale is
+// not.
+//
+// A 3.0 x 4.0 sheet makes the two rules disagree by construction -- extent
+// ordering measures the width along y (4.0), world agreement along x (3.0) --
+// rather than leaving it to how the fit resolves a near-square box.
 TEST(ReorderOrientation, CanonicalMayResizeWhenAxesPermute)
 {
     using OrientationMode = rt::ReorderUnorganizedTexture::OrientationMode;
     using SamplingMode = rt::ReorderUnorganizedTexture::SamplingMode;
 
+    constexpr int kWidth = 800;
     const auto run = [](OrientationMode mode) {
-        const auto data = MakeQuadrantSheet(1.50, 1.52);  // 3.00 x 3.04
+        const auto data = MakeQuadrantSheet(1.5, 2.0);  // 3.0 x 4.0
         rt::ReorderUnorganizedTexture reorder;
         reorder.setMesh(data.mesh);
         reorder.setUVMap(data.uv);
         reorder.setTextureMats(QuadrantImages());
         reorder.setSamplingMode(SamplingMode::OutputWidth);
-        reorder.setSampleDim(800);
+        reorder.setSampleDim(kWidth);
         reorder.setOrientationMode(mode);
         return reorder.compute();
     };
@@ -512,9 +528,21 @@ TEST(ReorderOrientation, CanonicalMayResizeWhenAxesPermute)
     const auto canonical = run(OrientationMode::Canonical);
     ASSERT_FALSE(obb.empty());
     ASSERT_FALSE(canonical.empty());
-    EXPECT_EQ(obb.cols, canonical.cols) << "width is pinned by sampleDim";
-    EXPECT_NE(obb.rows, canonical.rows)
-        << "a permuted assignment should change the height";
+    EXPECT_EQ(canonical.cols, kWidth) << "width is pinned by sampleDim";
+    EXPECT_EQ(obb.cols, kWidth) << "width is pinned by sampleDim";
+
+    // The invariant that does not depend on how VTK ordered the axes: under
+    // Canonical the width is measured along the world-X extent, so the output
+    // is 4:3 taller than wide. The tolerance absorbs the ceil() on the height
+    // (1067 rather than 1066.67, the whole of the observed 4e-4 deviation) and
+    // any small difference between the realigned extents and the 3.0 x 4.0
+    // chords the bow along x is measured across.
+    const auto aspect =
+        static_cast<double>(canonical.rows) / static_cast<double>(kWidth);
+    EXPECT_NEAR(aspect, 4.0 / 3.0, 0.05)
+        << "canonical height should follow the world-Y extent";
+    EXPECT_LT(obb.rows, canonical.rows)
+        << "extent ordering measures the width along the longer side instead";
 }
 
 namespace

@@ -218,15 +218,19 @@ auto main(int argc, char* argv[]) -> int
              "output orientation is unrelated to the input mesh's: the texture "
              "may come out rotated or mirrored, and repeat scans of one object "
              "are not comparable. 'canonical' resolves that against the world "
-             "axes, so image +u runs along world +X, image +v along world -Y, "
-             "and the world +Z-facing surface is the one sampled. Only "
+             "axes, so image +u runs along the box axis that agrees with "
+             "world +X, image +v along the one that agrees with world -Y, and "
+             "the world +Z-facing surface is the one sampled. Only "
              "meaningful if the input mesh is already canonically oriented "
              "(right along +X, up along +Y, surface normal along +Z). This "
              "removes the 90-degree, 180-degree and mirrored outputs, but not "
              "the sub-degree in-plane rotation the bounding-box area "
              "minimization applies, and may pick a different pixel scale than "
-             "'obb' under --sampling-mode width/height. With --projection "
-             "orthographic it requires --sampling-origin tl. With --projection "
+             "'obb' under --sampling-mode width/height. The image plane stays "
+             "parallel to the mesh's own fitted base plane, not to world XY, "
+             "so a mesh whose normal is a few degrees off +Z keeps that tilt. "
+             "With --projection orthographic it requires --sampling-origin tl "
+             "and the default last-intersection sampling. With --projection "
              "camera it orients the auto-derived camera the same way, and is "
              "ignored if --camera-file is given.")
         ("use-first-intersection,f", "This program assumes that "
@@ -234,7 +238,8 @@ auto main(int argc, char* argv[]) -> int
              "mesh. Thus, the last mesh intersection point will lie on the "
              "visible surface. If instead the projection origin is in front of "
              "the base plane, the first mesh intersection point lies on the "
-             "visible surface.");
+             "visible surface. Incompatible with --orientation canonical, "
+             "which resolves the +Z-facing surface as the sampled one.");
 
     po::options_description projOptions("Projection Options");
     projOptions.add_options()
@@ -348,6 +353,21 @@ auto main(int argc, char* argv[]) -> int
             "which would flip the sampling axes and undo the canonical "
             "orientation",
             originStr);
+        return EXIT_FAILURE;
+    }
+    // Canonicalization's sign derivation assumes the default ray march (from
+    // z_max toward -Z), which is what makes the world +Z-facing surface the
+    // sampled one. --use-first-intersection reverses the march, so the
+    // -Z-facing surface is sampled instead -- on a folded or multi-layer
+    // fragment that silently images the wrong layer. Only the orthographic
+    // path consumes it.
+    if (orientationMode == OrientationMode::Canonical and
+        projStr == "orthographic" and useFirstIntersection) {
+        rt::logger()->error(
+            "--orientation canonical is incompatible with "
+            "--use-first-intersection, which reverses the ray march and "
+            "samples the world -Z-facing surface rather than the +Z-facing "
+            "one canonical mode resolves");
         return EXIT_FAILURE;
     }
 
