@@ -59,6 +59,18 @@ public:
     };
 
     /**
+     * @brief How the orientation of the sampling frame is resolved
+     *
+     * @see setOrientationMode()
+     */
+    enum class OrientationMode {
+        OBB,      /** Take the OBB axis directions as computed. The output
+                     image's orientation is arbitrary. (default) */
+        Canonical /** Disambiguate the OBB axis directions using the world
+                     axes. Requires a canonically oriented input mesh. */
+    };
+
+    /**
      * @brief Pinhole camera intrinsics + extrinsics for ProjectionMode::Camera
      *
      * @c extrinsics is the world-to-camera matrix (OpenCV convention:
@@ -186,6 +198,58 @@ public:
     [[nodiscard]] auto projectionMode() const -> ProjectionMode;
 
     /**
+     * @brief Set how the orientation of the sampling frame is resolved
+     *
+     * The oriented bounding box used to build the sampling frame has arbitrary
+     * axis directions, so by default (OrientationMode::OBB) the orientation of
+     * the output image is unrelated to the orientation of the input mesh: the
+     * texture may come out rotated or mirrored, and successive scans of the
+     * same object are not comparable to each other.
+     *
+     * OrientationMode::Canonical resolves that ambiguity against the world
+     * axes, producing an image whose +u runs along world +X and whose +v runs
+     * along world -Y, sampling the surface that faces world +Z. This is only
+     * meaningful if the input mesh is already canonically oriented -- mesh
+     * right along +X, mesh up along +Y, surface normal along +Z -- as produced
+     * by an upstream orientation step; on an arbitrarily posed mesh it merely
+     * trades one arbitrary orientation for another.
+     *
+     * The sampling *plane* is unchanged, so foreshortening behaves exactly as
+     * it does under OrientationMode::OBB. The axis *assignment* can change,
+     * however: where the world-agreement rule picks different in-plane axes
+     * than the extent ordering would, the extent the image width is measured
+     * along changes with it, so SamplingMode::OutputWidth and
+     * SamplingMode::OutputHeight can yield a different pixel scale than
+     * OrientationMode::OBB does.
+     *
+     * ProjectionMode::Camera honors this as well, by orienting the camera it
+     * derives at compute time: the camera is placed on the world +Z side of the
+     * surface, with image right along world +X and image down along world -Y,
+     * the same convention the orthographic path produces. That resolves all
+     * three choices the raw bounding box leaves arbitrary there -- which side
+     * the camera views from, which way is up, and which in-plane axis becomes
+     * the image width. A camera supplied through setProjectionParams() is used
+     * verbatim and is unaffected.
+     *
+     * @warning setSamplingOrigin() is applied downstream of this (orthographic
+     * sampling only), so any origin other than SamplingOrigin::TopLeft negates
+     * the sampling axes again and undoes the canonical orientation --
+     * SamplingOrigin::TopRight mirrors the result, which is the exact failure
+     * this mode exists to prevent.
+     *
+     * @note This resolves the *discrete* ambiguity -- which axis, and which
+     * direction along it -- and so removes the 90-degree, 180-degree and
+     * mirrored outputs. It does not remove the small in-plane rotation the
+     * bounding-box area minimization applies after realignment, which is
+     * bounded by +/-45 degrees and in practice is a fraction of a degree for a
+     * mesh whose bounding box is already close to world-aligned.
+     */
+    void setOrientationMode(OrientationMode m);
+
+    /** @copydoc setOrientationMode() */
+    [[nodiscard]] auto orientationMode() const -> OrientationMode;
+
+    /**
      * @brief Set explicit pinhole intrinsics/extrinsics for
      * ProjectionMode::Camera
      *
@@ -284,6 +348,8 @@ private:
 
     /** Projection model */
     ProjectionMode projectionMode_{ProjectionMode::Orthographic};
+    /** Sampling frame orientation resolution */
+    OrientationMode orientationMode_{OrientationMode::OBB};
     /** Explicit pinhole parameters (used when projParamsSet_ is true) */
     ProjectionParams projParams_{};
     /** Whether explicit projection parameters were provided */
