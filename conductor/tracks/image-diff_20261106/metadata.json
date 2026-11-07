@@ -1,0 +1,18 @@
+{
+  "id": "image-diff_20261106",
+  "title": "Detect differences in registered images",
+  "type": "feature",
+  "status": "stub",
+  "github_issue": 3,
+  "github_url": "https://github.com/educelab/registration-toolkit/issues/3",
+  "created": "2026-11-06T22:10:00Z",
+  "updated": "2026-11-06T22:10:00Z",
+  "phases": {
+    "total": 0,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 0,
+    "completed": 0
+  }
+}

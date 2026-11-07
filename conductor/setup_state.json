@@ -1,0 +1,67 @@
+{
+  "status": "complete",
+  "project_type": "brownfield",
+  "current_section": "styleguides",
+  "current_question": 2,
+  "completed_sections": [
+    "product",
+    "guidelines",
+    "tech_stack",
+    "workflow",
+    "styleguides"
+  ],
+  "answers": {
+    "product.name": "registration-toolkit",
+    "product.description": "A set of utilities written in C++ for simplifying image alignment tasks, supporting image-to-image and image-to-mesh registration.",
+    "product.problem": "Images of the same object captured at different times, with different cameras, or in different modalities do not line up, so they cannot be compared or combined; and there is no simple way to transfer a high-quality 2D image onto a 3D scan texture, or to flatten a scan texture into a single usable image.",
+    "product.users": [
+      "Imaging researchers in digital heritage running the rt_* CLI tools",
+      "Pipeline operators running automated acquisition and registration workflows via the smgl render graph",
+      "Downstream C++ developers linking rt::core / rt::graph"
+    ],
+    "product.goals": [
+      "Accurate, reproducible results",
+      "Full image-type support",
+      "Robust mesh handling",
+      "Clean downstream package"
+    ],
+    "guidelines.voice": "Concise and direct",
+    "guidelines.principles": [
+      "Correctness over speed",
+      "One canonical type",
+      "Explicit opt-in",
+      "Record decisions",
+      "Use mattpocock-skills grill-with-docs for ADRs and domain terms"
+    ],
+    "tech_stack.confirmed_detected": true,
+    "tech_stack.frontend": "N/A (C++ library + CLI)",
+    "tech_stack.backend": "N/A (C++ library + CLI)",
+    "tech_stack.database": "N/A (C++ library + CLI)",
+    "tech_stack.infrastructure": [
+      "Homebrew tap",
+      "Docker (GHCR)",
+      "Source + CMake package"
+    ],
+    "workflow.tdd": "Strict",
+    "workflow.commits": "Match current history: imperative descriptive summary, optional area: prefix, PRs squash-merged with (#N)",
+    "workflow.review": "Required for non-trivial changes (PR + review); docs/version bumps may go direct to develop",
+    "workflow.checkpoints": "At track completion",
+    "styleguides.languages": [
+      "cpp (derived from repo)",
+      "general"
+    ],
+    "styleguides.existing_configs": "Yes, use .clang-format/.clang-tidy and existing code patterns"
+  },
+  "files_created": [
+    "conductor/product.md",
+    "conductor/product-guidelines.md",
+    "conductor/tech-stack.md",
+    "conductor/workflow.md",
+    "conductor/code_styleguides/cpp.md",
+    "conductor/code_styleguides/general.md",
+    "conductor/index.md",
+    "conductor/tracks.md"
+  ],
+  "started_at": "2026-11-06T21:40:15Z",
+  "last_updated": "2026-11-06T21:58:00Z"
+}

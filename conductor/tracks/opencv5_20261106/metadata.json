@@ -1,0 +1,18 @@
+{
+  "id": "opencv5_20261106",
+  "title": "Support OpenCV 5",
+  "type": "chore",
+  "status": "stub",
+  "github_issue": 24,
+  "github_url": "https://github.com/educelab/registration-toolkit/issues/24",
+  "created": "2026-11-06T22:10:00Z",
+  "updated": "2026-11-06T22:10:00Z",
+  "phases": {
+    "total": 0,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 0,
+    "completed": 0
+  }
+}
